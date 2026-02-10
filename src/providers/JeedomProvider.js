@@ -52,15 +52,61 @@ class JeedomProvider extends BaseProvider {
         (device.isVisible === 1 || device.isVisible === '1')
       );
 
-      // Normaliser les devices
-      return devices.map(device => ({
-        id: device.id,
-        name: device.name,
-        type: this._detectDeviceType(device),
-        room: device.object_id,
-        isEnabled: device.isEnable === '1',
-        raw: device
-      }));
+      // Pour chaque device, récupérer ses commandes
+      const devicesWithCommands = await Promise.all(
+        devices.map(async (device) => {
+          try {
+            const cmdResponse = await axios.post(
+              `${this.baseUrl}/core/api/jeeApi.php`,
+              {
+                jsonrpc: '2.0',
+                id: '1',
+                method: 'cmd::byEqLogicId',
+                params: { apikey: this.apiKey, eqLogic_id: device.id }
+              }
+            );
+
+            const commands = cmdResponse.data.result || [];
+
+            // Trouver les commandes toggle/on/off
+            const toggleCmd = commands.find(cmd =>
+              cmd.generic_type === 'LIGHT_TOGGLE' ||
+              cmd.name?.toLowerCase() === 'toggle'
+            );
+            const onCmd = commands.find(cmd =>
+              cmd.generic_type === 'LIGHT_ON' ||
+              cmd.name?.toLowerCase() === 'on'
+            );
+            const offCmd = commands.find(cmd =>
+              cmd.generic_type === 'LIGHT_OFF' ||
+              cmd.name?.toLowerCase() === 'off'
+            );
+
+            return {
+              id: device.id,
+              name: device.name,
+              type: this._detectDeviceType(device),
+              room: device.object_id,
+              isEnabled: device.isEnable === '1',
+              toggleCommandId: toggleCmd?.id || onCmd?.id || offCmd?.id,
+              raw: device
+            };
+          } catch (error) {
+            console.error(`Failed to get commands for ${device.name}:`, error.message);
+            return {
+              id: device.id,
+              name: device.name,
+              type: this._detectDeviceType(device),
+              room: device.object_id,
+              isEnabled: device.isEnable === '1',
+              toggleCommandId: null,
+              raw: device
+            };
+          }
+        })
+      );
+
+      return devicesWithCommands;
     } catch (error) {
       console.error('Failed to get devices:', error.message);
       return [];
