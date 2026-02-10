@@ -11,17 +11,17 @@ class JeedomProvider extends BaseProvider {
 
   async connect() {
     try {
-      // Test connection by fetching objects
-      const response = await axios.get(
+      // Test connection avec JSON RPC
+      const response = await axios.post(
         `${this.baseUrl}/core/api/jeeApi.php`,
         {
-          params: {
-            apikey: this.apiKey,
-            type: 'object'
-          }
+          jsonrpc: '2.0',
+          id: '1',
+          method: 'eqLogic::all',
+          params: { apikey: this.apiKey }
         }
       );
-      return response.status === 200;
+      return response.status === 200 && response.data.result !== undefined;
     } catch (error) {
       console.error('Jeedom connection failed:', error.message);
       return false;
@@ -30,19 +30,30 @@ class JeedomProvider extends BaseProvider {
 
   async getDevices() {
     try {
-      // Récupérer les équipements
-      const response = await axios.get(
+      // Récupérer TOUS les équipements via JSON RPC
+      const response = await axios.post(
         `${this.baseUrl}/core/api/jeeApi.php`,
         {
-          params: {
-            apikey: this.apiKey,
-            type: 'eqLogic'
-          }
+          jsonrpc: '2.0',
+          id: '1',
+          method: 'eqLogic::all',
+          params: { apikey: this.apiKey }
         }
       );
 
+      if (!response.data.result) {
+        return [];
+      }
+
+      // Filtrer : uniquement les équipements virtuels actifs et visibles
+      const devices = response.data.result.filter(device =>
+        device.eqType_name === 'virtual' &&
+        device.isEnable === '1' &&
+        device.isVisible === '1'
+      );
+
       // Normaliser les devices
-      return response.data.map(device => ({
+      return devices.map(device => ({
         id: device.id,
         name: device.name,
         type: this._detectDeviceType(device),
@@ -58,20 +69,28 @@ class JeedomProvider extends BaseProvider {
 
   async executeCommand(deviceId, command, params = {}) {
     try {
-      const url = `${this.baseUrl}/core/api/jeeApi.php`;
-      const queryParams = {
+      // Exécuter une commande via JSON RPC
+      const requestParams = {
         apikey: this.apiKey,
-        type: 'command',
-        id: command
+        id: parseInt(command)
       };
 
-      // Si c'est un slider, ajouter la valeur
+      // Si c'est un slider, ajouter les options
       if (params.value !== undefined) {
-        queryParams.slider = params.value;
+        requestParams.options = { slider: params.value };
       }
 
-      const response = await axios.get(url, { params: queryParams });
-      return response.data;
+      const response = await axios.post(
+        `${this.baseUrl}/core/api/jeeApi.php`,
+        {
+          jsonrpc: '2.0',
+          id: '1',
+          method: 'cmd::execCmd',
+          params: requestParams
+        }
+      );
+
+      return response.data.result;
     } catch (error) {
       console.error('Failed to execute command:', error.message);
       throw error;
