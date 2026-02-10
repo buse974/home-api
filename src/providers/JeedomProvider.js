@@ -68,14 +68,6 @@ class JeedomProvider extends BaseProvider {
 
             const commands = cmdResponse.data.result || [];
 
-            // Debug: afficher les commandes disponibles
-            console.log(`[${device.name}] Commands:`, commands.map(c => ({
-              id: c.id,
-              name: c.name,
-              type: c.type,
-              generic_type: c.generic_type
-            })));
-
             // Trouver les commandes toggle/on/off
             const toggleCmd = commands.find(cmd =>
               cmd.generic_type === 'LIGHT_TOGGLE' ||
