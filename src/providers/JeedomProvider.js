@@ -48,8 +48,8 @@ class JeedomProvider extends BaseProvider {
       // Filtrer : uniquement les équipements virtuels actifs et visibles
       const devices = response.data.result.filter(device =>
         device.eqType_name === 'virtual' &&
-        device.isEnable === '1' &&
-        device.isVisible === '1'
+        (device.isEnable === 1 || device.isEnable === '1') &&
+        (device.isVisible === 1 || device.isVisible === '1')
       );
 
       // Normaliser les devices
