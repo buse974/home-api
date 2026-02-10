@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import sequelize from './config/database.js';
+import './models/index.js'; // Charger les associations
 
 // Routes
 import authRoutes from './routes/auth.js';
