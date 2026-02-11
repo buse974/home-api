@@ -1,5 +1,5 @@
 import sequelize from './database.js';
-import { House, User, Provider, Dashboard, Widget, GenericDevice, DashboardWidget } from '../models/index.js';
+import { House, User, Provider, Dashboard, Widget, GenericDevice, DashboardWidget, DashboardWidgetDevice } from '../models/index.js';
 
 async function migrate() {
   try {
