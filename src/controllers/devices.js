@@ -71,6 +71,7 @@ export const getDevices = async (req, res) => {
     const devices = await GenericDevice.findAll({
       include: [{
         model: Provider,
+        as: 'Provider',
         where: { houseId: req.user.house_id },
         attributes: ['id', 'name', 'type']
       }]
@@ -92,6 +93,7 @@ export const executeCapability = async (req, res) => {
       where: { id: req.params.id },
       include: [{
         model: Provider,
+        as: 'Provider',
         where: { houseId: req.user.house_id }
       }]
     });
@@ -121,6 +123,7 @@ export const getDeviceState = async (req, res) => {
       where: { id: req.params.id },
       include: [{
         model: Provider,
+        as: 'Provider',
         where: { houseId: req.user.house_id }
       }]
     });
@@ -149,6 +152,7 @@ export const deleteDevice = async (req, res) => {
       where: { id: req.params.id },
       include: [{
         model: Provider,
+        as: 'Provider',
         where: { houseId: req.user.house_id }
       }]
     });
