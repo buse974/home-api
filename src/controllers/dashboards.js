@@ -97,6 +97,7 @@ export const addWidget = async (req, res) => {
       where: { id: genericDeviceId },
       include: [{
         model: Provider,
+        as: 'Provider',
         where: { houseId: req.user.house_id }
       }]
     });
@@ -116,8 +117,8 @@ export const addWidget = async (req, res) => {
     // Recharger avec les associations pour la réponse
     const result = await DashboardWidget.findByPk(dashboardWidget.id, {
       include: [
-        { model: Widget },
-        { model: GenericDevice }
+        { model: Widget, as: 'Widget' },
+        { model: GenericDevice, as: 'GenericDevice' }
       ]
     });
 
@@ -137,6 +138,7 @@ export const updateWidget = async (req, res) => {
       where: { id: req.params.id },
       include: [{
         model: Dashboard,
+        as: 'Dashboard',
         where: { houseId: req.user.house_id }
       }]
     });
@@ -169,6 +171,7 @@ export const deleteWidget = async (req, res) => {
       where: { id: req.params.id },
       include: [{
         model: Dashboard,
+        as: 'Dashboard',
         where: { houseId: req.user.house_id }
       }]
     });
