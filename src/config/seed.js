@@ -93,6 +93,23 @@ async function seed() {
       console.log('✓ Widget Switch already exists');
     }
 
+    // 6. Créer le widget SwitchToggle (catalogue)
+    let widgetToggle = await Widget.findOne({ where: { name: 'SwitchToggle' } });
+
+    if (!widgetToggle) {
+      widgetToggle = await Widget.create({
+        name: 'SwitchToggle',
+        libelle: 'Interrupteur Toggle',
+        component: 'SwitchToggle',
+        description: 'Design minimaliste avec toggle horizontal',
+        icon: '🎚️',
+        config_schema: {}
+      });
+      console.log('✓ Widget SwitchToggle created');
+    } else {
+      console.log('✓ Widget SwitchToggle already exists');
+    }
+
     console.log('\n✅ Seed completed successfully');
     console.log('\nℹ️  Login with: admin@home.local / demo123');
     process.exit(0);
