@@ -6,10 +6,11 @@ async function migrate() {
     await sequelize.authenticate();
     console.log('✓ Database connection established');
 
-    // Sync models (create tables)
-    // Force: true will drop existing tables and recreate them
-    await sequelize.sync({ force: true });
-    console.log('✓ Database tables created');
+    // Sync models (create missing tables and columns)
+    // alter: true will modify existing tables without dropping them
+    // NEVER use force: true in production - it drops all data!
+    await sequelize.sync({ alter: true });
+    console.log('✓ Database schema synchronized');
 
     process.exit(0);
   } catch (error) {
