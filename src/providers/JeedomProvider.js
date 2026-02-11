@@ -93,8 +93,18 @@ class JeedomProvider extends BaseProvider {
   }
 
   extractCapabilities(commands) {
+    // Support de plusieurs types de generic_type pour toggle
+    const toggleTypes = ['LIGHT_TOGGLE', 'ENERGY_TOGGLE', 'HEATING_TOGGLE'];
+    const onTypes = ['LIGHT_ON', 'ENERGY_ON', 'HEATING_ON', 'SWITCH_ON'];
+    const offTypes = ['LIGHT_OFF', 'ENERGY_OFF', 'HEATING_OFF', 'SWITCH_OFF'];
+
     return {
-      toggle: commands.some(c => c.generic_type === 'LIGHT_TOGGLE'),
+      toggle: commands.some(c =>
+        toggleTypes.includes(c.generic_type) ||
+        // Si on a ON + OFF, on peut toggler
+        (commands.some(cmd => onTypes.includes(cmd.generic_type)) &&
+         commands.some(cmd => offTypes.includes(cmd.generic_type)))
+      ),
       dim: commands.some(c => c.generic_type === 'LIGHT_SLIDER'),
       color: commands.some(c => c.generic_type === 'LIGHT_COLOR'),
       temperature: commands.some(c => c.generic_type === 'LIGHT_SET_COLOR_TEMP')
@@ -104,9 +114,14 @@ class JeedomProvider extends BaseProvider {
   buildCommandMapping(commands) {
     const mapping = {};
 
-    const toggleCmd = commands.find(c => c.generic_type === 'LIGHT_TOGGLE');
-    const onCmd = commands.find(c => c.generic_type === 'LIGHT_ON');
-    const offCmd = commands.find(c => c.generic_type === 'LIGHT_OFF');
+    // Support de plusieurs types de generic_type
+    const toggleTypes = ['LIGHT_TOGGLE', 'ENERGY_TOGGLE', 'HEATING_TOGGLE'];
+    const onTypes = ['LIGHT_ON', 'ENERGY_ON', 'HEATING_ON', 'SWITCH_ON'];
+    const offTypes = ['LIGHT_OFF', 'ENERGY_OFF', 'HEATING_OFF', 'SWITCH_OFF'];
+
+    const toggleCmd = commands.find(c => toggleTypes.includes(c.generic_type));
+    const onCmd = commands.find(c => onTypes.includes(c.generic_type));
+    const offCmd = commands.find(c => offTypes.includes(c.generic_type));
     const dimCmd = commands.find(c => c.generic_type === 'LIGHT_SLIDER');
     const colorCmd = commands.find(c => c.generic_type === 'LIGHT_COLOR');
 
