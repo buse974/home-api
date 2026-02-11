@@ -26,6 +26,10 @@ const Widget = sequelize.define('Widget', {
   icon: {
     type: DataTypes.STRING
   },
+  category: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
   config_schema: {
     type: DataTypes.JSON,
     defaultValue: {}

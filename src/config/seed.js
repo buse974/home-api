@@ -86,6 +86,7 @@ async function seed() {
         component: 'Switch',
         description: 'Toggle on/off simple',
         icon: 'toggle-right',
+        category: 'switch',
         config_schema: {}
       });
       console.log('✓ Widget Switch created');
@@ -103,6 +104,7 @@ async function seed() {
         component: 'SwitchToggle',
         description: 'Design minimaliste avec toggle horizontal',
         icon: '🎚️',
+        category: 'switch',
         config_schema: {}
       });
       console.log('✓ Widget SwitchToggle created');
@@ -119,6 +121,7 @@ async function seed() {
         component: 'ActionButton',
         description: 'Bouton pour une action spécifique (ON, OFF, Toggle)',
         icon: '⚡',
+        category: 'action',
         config_schema: {
           action: {
             type: 'string',
@@ -156,6 +159,7 @@ async function seed() {
         component: 'SwitchNeon',
         description: 'Switch futuriste avec effet néon et animations cyberpunk',
         icon: '⚡',
+        category: 'switch',
         config_schema: {}
       });
       console.log('✓ Widget SwitchNeon created');
