@@ -27,6 +27,11 @@ const DashboardWidget = sequelize.define('DashboardWidget', {
     },
     onDelete: 'RESTRICT'
   },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: null
+  },
   config: {
     type: DataTypes.JSON,
     defaultValue: {}

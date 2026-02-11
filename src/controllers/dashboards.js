@@ -1,5 +1,6 @@
 import { Dashboard, Widget, GenericDevice, DashboardWidget, DashboardWidgetDevice, Provider } from '../models/index.js';
 import sequelize from '../config/database.js';
+import ProviderFactory from '../providers/ProviderFactory.js';
 
 // GET /dashboards - Liste des dashboards de la maison
 export const getDashboards = async (req, res) => {
@@ -260,6 +261,151 @@ export const deleteWidget = async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Delete widget error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Helper pour déchiffrer config provider
+function decryptConfig(provider) {
+  return provider.configEncrypted;
+}
+
+// POST /dashboard-widgets/:id/execute - Exécuter une commande sur TOUS les devices du widget
+export const executeWidgetCommand = async (req, res) => {
+  try {
+    const { capability, params = {} } = req.body;
+
+    // Récupérer le widget avec tous ses devices
+    const dashboardWidget = await DashboardWidget.findOne({
+      where: { id: req.params.id },
+      include: [
+        {
+          model: Dashboard,
+          as: 'Dashboard',
+          where: { houseId: req.user.house_id }
+        },
+        {
+          model: GenericDevice,
+          as: 'GenericDevices',
+          through: { attributes: [] },
+          include: [{
+            model: Provider,
+            as: 'Provider'
+          }]
+        }
+      ]
+    });
+
+    if (!dashboardWidget) {
+      return res.status(404).json({ error: 'Widget not found' });
+    }
+
+    const devices = dashboardWidget.GenericDevices;
+
+    if (!devices || devices.length === 0) {
+      return res.status(400).json({ error: 'No devices associated with this widget' });
+    }
+
+    // Exécuter la commande sur TOUS les devices en parallèle
+    const results = await Promise.allSettled(
+      devices.map(async (device) => {
+        const config = decryptConfig(device.Provider);
+        const providerInstance = ProviderFactory.create(device.Provider.type, config);
+        const providerDeviceId = device.command_mapping.device_id;
+
+        await providerInstance.executeCapability(providerDeviceId, capability, params);
+
+        return { deviceId: device.id, deviceName: device.name, success: true };
+      })
+    );
+
+    // Analyser les résultats
+    const succeeded = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+    const failed = results.filter(r => r.status === 'rejected').map((r, i) => ({
+      deviceId: devices[i].id,
+      deviceName: devices[i].name,
+      error: r.reason.message
+    }));
+
+    res.json({
+      success: failed.length === 0,
+      executed: succeeded.length,
+      total: devices.length,
+      succeeded,
+      failed
+    });
+  } catch (error) {
+    console.error('Execute widget command error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET /dashboard-widgets/:id/state - Récupérer l'état de TOUS les devices du widget
+export const getWidgetState = async (req, res) => {
+  try {
+    // Récupérer le widget avec tous ses devices
+    const dashboardWidget = await DashboardWidget.findOne({
+      where: { id: req.params.id },
+      include: [
+        {
+          model: Dashboard,
+          as: 'Dashboard',
+          where: { houseId: req.user.house_id }
+        },
+        {
+          model: GenericDevice,
+          as: 'GenericDevices',
+          through: { attributes: [] },
+          include: [{
+            model: Provider,
+            as: 'Provider'
+          }]
+        }
+      ]
+    });
+
+    if (!dashboardWidget) {
+      return res.status(404).json({ error: 'Widget not found' });
+    }
+
+    const devices = dashboardWidget.GenericDevices;
+
+    if (!devices || devices.length === 0) {
+      return res.status(400).json({ error: 'No devices associated with this widget' });
+    }
+
+    // Récupérer l'état de TOUS les devices en parallèle
+    const states = await Promise.allSettled(
+      devices.map(async (device) => {
+        const config = decryptConfig(device.Provider);
+        const providerInstance = ProviderFactory.create(device.Provider.type, config);
+        const providerDeviceId = device.command_mapping.device_id;
+
+        const state = await providerInstance.getDeviceState(providerDeviceId);
+
+        return {
+          deviceId: device.id,
+          deviceName: device.name,
+          state
+        };
+      })
+    );
+
+    // Analyser les résultats
+    const succeeded = states.filter(r => r.status === 'fulfilled').map(r => r.value);
+    const failed = states.filter(r => r.status === 'rejected').map((r, i) => ({
+      deviceId: devices[i].id,
+      deviceName: devices[i].name,
+      error: r.reason.message
+    }));
+
+    res.json({
+      devices: succeeded,
+      errors: failed,
+      total: devices.length
+    });
+  } catch (error) {
+    console.error('Get widget state error:', error);
     res.status(500).json({ error: error.message });
   }
 };

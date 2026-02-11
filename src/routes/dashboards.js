@@ -6,7 +6,9 @@ import {
   addWidget,
   updateWidget,
   deleteWidget,
-  getWidgets
+  getWidgets,
+  executeWidgetCommand,
+  getWidgetState
 } from '../controllers/dashboards.js';
 import { authenticate } from '../middleware/auth.js';
 
@@ -28,5 +30,9 @@ router.post('/:dashboardId/widgets', addWidget);
 // Gestion des widgets (update/delete)
 router.put('/widgets/:id', updateWidget);
 router.delete('/widgets/:id', deleteWidget);
+
+// Actions sur les widgets (exécution multi-devices)
+router.post('/widgets/:id/execute', executeWidgetCommand);
+router.get('/widgets/:id/state', getWidgetState);
 
 export default router;
