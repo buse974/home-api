@@ -27,16 +27,6 @@ const DashboardWidget = sequelize.define('DashboardWidget', {
     },
     onDelete: 'RESTRICT'
   },
-  genericDeviceId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    field: 'generic_device_id',
-    references: {
-      model: 'generic_devices',
-      key: 'id'
-    },
-    onDelete: 'CASCADE'
-  },
   config: {
     type: DataTypes.JSON,
     defaultValue: {}

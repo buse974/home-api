@@ -1,4 +1,5 @@
-import { Dashboard, Widget, GenericDevice, DashboardWidget, Provider } from '../models/index.js';
+import { Dashboard, Widget, GenericDevice, DashboardWidget, DashboardWidgetDevice, Provider } from '../models/index.js';
+import sequelize from '../config/database.js';
 
 // GET /dashboards - Liste des dashboards de la maison
 export const getDashboards = async (req, res) => {
@@ -33,8 +34,9 @@ export const getDashboard = async (req, res) => {
           },
           {
             model: GenericDevice,
-            as: 'GenericDevice',
-            attributes: ['id', 'name', 'type', 'capabilities']
+            as: 'GenericDevices',
+            attributes: ['id', 'name', 'type', 'capabilities'],
+            through: { attributes: [] }
           }
         ]
       }]
@@ -72,7 +74,12 @@ export const createDashboard = async (req, res) => {
 // POST /dashboards/:dashboardId/widgets - Ajouter un widget au dashboard
 export const addWidget = async (req, res) => {
   try {
-    const { widgetId, genericDeviceId, config = {}, position = { x: 0, y: 0, w: 2, h: 1 } } = req.body;
+    const { widgetId, genericDeviceIds, config = {}, position = { x: 0, y: 0, w: 2, h: 1 } } = req.body;
+
+    // Valider que genericDeviceIds est un array non vide
+    if (!Array.isArray(genericDeviceIds) || genericDeviceIds.length === 0) {
+      return res.status(400).json({ error: 'genericDeviceIds must be a non-empty array' });
+    }
 
     // Vérifier que le dashboard appartient à la maison
     const dashboard = await Dashboard.findOne({
@@ -92,9 +99,9 @@ export const addWidget = async (req, res) => {
       return res.status(404).json({ error: 'Widget not found' });
     }
 
-    // Vérifier que le generic_device appartient à la maison
-    const device = await GenericDevice.findOne({
-      where: { id: genericDeviceId },
+    // Vérifier que TOUS les devices appartiennent à la maison
+    const devices = await GenericDevice.findAll({
+      where: { id: genericDeviceIds },
       include: [{
         model: Provider,
         as: 'Provider',
@@ -102,24 +109,39 @@ export const addWidget = async (req, res) => {
       }]
     });
 
-    if (!device) {
-      return res.status(404).json({ error: 'Device not found' });
+    if (devices.length !== genericDeviceIds.length) {
+      return res.status(404).json({ error: 'One or more devices not found or do not belong to this house' });
     }
 
-    const dashboardWidget = await DashboardWidget.create({
-      dashboardId: req.params.dashboardId,
-      widgetId,
-      genericDeviceId,
-      config,
-      position
-    });
+    // Créer le DashboardWidget et ses associations dans une transaction atomique
+    const result = await sequelize.transaction(async (t) => {
+      // Créer le DashboardWidget SANS genericDeviceId
+      const dashboardWidget = await DashboardWidget.create({
+        dashboardId: req.params.dashboardId,
+        widgetId,
+        config,
+        position
+      }, { transaction: t });
 
-    // Recharger avec les associations pour la réponse
-    const result = await DashboardWidget.findByPk(dashboardWidget.id, {
-      include: [
-        { model: Widget, as: 'Widget' },
-        { model: GenericDevice, as: 'GenericDevice' }
-      ]
+      // Créer les associations via DashboardWidgetDevice
+      const associations = genericDeviceIds.map(deviceId => ({
+        dashboardWidgetId: dashboardWidget.id,
+        genericDeviceId: deviceId
+      }));
+      await DashboardWidgetDevice.bulkCreate(associations, { transaction: t });
+
+      // Recharger avec les associations pour la réponse
+      return await DashboardWidget.findByPk(dashboardWidget.id, {
+        include: [
+          { model: Widget, as: 'Widget' },
+          {
+            model: GenericDevice,
+            as: 'GenericDevices',
+            through: { attributes: [] }
+          }
+        ],
+        transaction: t
+      });
     });
 
     res.status(201).json({ dashboardWidget: result });
@@ -132,7 +154,7 @@ export const addWidget = async (req, res) => {
 // PUT /dashboard-widgets/:id - Mettre à jour un widget
 export const updateWidget = async (req, res) => {
   try {
-    const { config, position } = req.body;
+    const { config, position, genericDeviceIds } = req.body;
 
     const dashboardWidget = await DashboardWidget.findOne({
       where: { id: req.params.id },
@@ -147,17 +169,71 @@ export const updateWidget = async (req, res) => {
       return res.status(404).json({ error: 'Widget not found' });
     }
 
-    if (config !== undefined) {
-      dashboardWidget.config = config;
+    // Valider genericDeviceIds si fourni (avant transaction)
+    if (genericDeviceIds !== undefined) {
+      if (!Array.isArray(genericDeviceIds) || genericDeviceIds.length === 0) {
+        return res.status(400).json({ error: 'genericDeviceIds must be a non-empty array' });
+      }
+
+      // Vérifier que TOUS les devices appartiennent à la maison
+      const devices = await GenericDevice.findAll({
+        where: { id: genericDeviceIds },
+        include: [{
+          model: Provider,
+          as: 'Provider',
+          where: { houseId: req.user.house_id }
+        }]
+      });
+
+      if (devices.length !== genericDeviceIds.length) {
+        return res.status(404).json({ error: 'One or more devices not found or do not belong to this house' });
+      }
     }
 
-    if (position !== undefined) {
-      dashboardWidget.position = position;
-    }
+    // Mettre à jour dans une transaction atomique
+    const result = await sequelize.transaction(async (t) => {
+      // Mettre à jour config et position
+      if (config !== undefined) {
+        dashboardWidget.config = config;
+      }
 
-    await dashboardWidget.save();
+      if (position !== undefined) {
+        dashboardWidget.position = position;
+      }
 
-    res.json({ dashboardWidget });
+      await dashboardWidget.save({ transaction: t });
+
+      // Si genericDeviceIds est fourni, mettre à jour les associations
+      if (genericDeviceIds !== undefined) {
+        // Supprimer les anciennes associations
+        await DashboardWidgetDevice.destroy({
+          where: { dashboardWidgetId: dashboardWidget.id },
+          transaction: t
+        });
+
+        // Créer les nouvelles associations
+        const associations = genericDeviceIds.map(deviceId => ({
+          dashboardWidgetId: dashboardWidget.id,
+          genericDeviceId: deviceId
+        }));
+        await DashboardWidgetDevice.bulkCreate(associations, { transaction: t });
+      }
+
+      // Recharger avec les associations pour la réponse
+      return await DashboardWidget.findByPk(dashboardWidget.id, {
+        include: [
+          { model: Widget, as: 'Widget' },
+          {
+            model: GenericDevice,
+            as: 'GenericDevices',
+            through: { attributes: [] }
+          }
+        ],
+        transaction: t
+      });
+    });
+
+    res.json({ dashboardWidget: result });
   } catch (error) {
     console.error('Update widget error:', error);
     res.status(500).json({ error: error.message });

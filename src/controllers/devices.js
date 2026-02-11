@@ -34,6 +34,7 @@ export const getAvailableDevices = async (req, res) => {
 };
 
 // POST /devices - Créer un generic_device (lazy creation)
+// Utilise findOrCreate pour éviter les doublons si le même device physique est ajouté plusieurs fois
 export const createDevice = async (req, res) => {
   try {
     const { provider_id, name, type, capabilities, command_mapping } = req.body;
@@ -50,15 +51,22 @@ export const createDevice = async (req, res) => {
       return res.status(404).json({ error: 'Provider not found' });
     }
 
-    const device = await GenericDevice.create({
-      provider_id,
-      name,
-      type,
-      capabilities,
-      command_mapping
+    // findOrCreate pour éviter la duplication si le même device physique est ajouté plusieurs fois
+    // La clé unique est (provider_id, command_mapping.device_id)
+    const [device, created] = await GenericDevice.findOrCreate({
+      where: {
+        provider_id,
+        command_mapping: command_mapping // Sequelize compare les JSON en profondeur
+      },
+      defaults: {
+        name,
+        type,
+        capabilities,
+        command_mapping
+      }
     });
 
-    res.json({ device });
+    res.json({ device, created }); // Retourne aussi 'created' (true si nouveau, false si existant)
   } catch (error) {
     console.error('Create device error:', error);
     res.status(500).json({ error: error.message });

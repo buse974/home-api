@@ -5,6 +5,7 @@ import Dashboard from './Dashboard.js';
 import Widget from './Widget.js';
 import GenericDevice from './GenericDevice.js';
 import DashboardWidget from './DashboardWidget.js';
+import DashboardWidgetDevice from './DashboardWidgetDevice.js';
 
 // Définir les associations entre modèles
 
@@ -32,9 +33,19 @@ DashboardWidget.belongsTo(Dashboard, { foreignKey: 'dashboardId', as: 'Dashboard
 Widget.hasMany(DashboardWidget, { foreignKey: 'widgetId', as: 'dashboardWidgets' });
 DashboardWidget.belongsTo(Widget, { foreignKey: 'widgetId', as: 'Widget' });
 
-// GenericDevice <-> DashboardWidget
-GenericDevice.hasMany(DashboardWidget, { foreignKey: 'genericDeviceId', as: 'dashboardWidgets' });
-DashboardWidget.belongsTo(GenericDevice, { foreignKey: 'genericDeviceId', as: 'GenericDevice' });
+// GenericDevice <-> DashboardWidget (many-to-many via DashboardWidgetDevice)
+DashboardWidget.belongsToMany(GenericDevice, {
+  through: DashboardWidgetDevice,
+  foreignKey: 'dashboardWidgetId',
+  otherKey: 'genericDeviceId',
+  as: 'GenericDevices'
+});
+GenericDevice.belongsToMany(DashboardWidget, {
+  through: DashboardWidgetDevice,
+  foreignKey: 'genericDeviceId',
+  otherKey: 'dashboardWidgetId',
+  as: 'DashboardWidgets'
+});
 
 export {
   House,
@@ -43,5 +54,6 @@ export {
   Dashboard,
   Widget,
   GenericDevice,
-  DashboardWidget
+  DashboardWidget,
+  DashboardWidgetDevice
 };
