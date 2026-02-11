@@ -147,6 +147,22 @@ async function seed() {
       console.log('✓ Widget ActionButton already exists');
     }
 
+    // 8. Créer le widget SwitchNeon (catalogue)
+    let widgetNeon = await Widget.findOne({ where: { name: 'SwitchNeon' } });
+    if (!widgetNeon) {
+      widgetNeon = await Widget.create({
+        name: 'SwitchNeon',
+        libelle: 'Switch Néon',
+        component: 'SwitchNeon',
+        description: 'Switch futuriste avec effet néon et animations cyberpunk',
+        icon: '⚡',
+        config_schema: {}
+      });
+      console.log('✓ Widget SwitchNeon created');
+    } else {
+      console.log('✓ Widget SwitchNeon already exists');
+    }
+
     console.log('\n✅ Seed completed successfully');
     console.log('\nℹ️  Login with: admin@home.local / demo123');
     process.exit(0);
