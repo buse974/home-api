@@ -24,13 +24,16 @@ export const getDashboard = async (req, res) => {
       },
       include: [{
         model: DashboardWidget,
+        as: 'DashboardWidgets',
         include: [
           {
             model: Widget,
+            as: 'Widget',
             attributes: ['id', 'name', 'libelle', 'component', 'icon']
           },
           {
             model: GenericDevice,
+            as: 'GenericDevice',
             attributes: ['id', 'name', 'type', 'capabilities']
           }
         ]
