@@ -110,6 +110,43 @@ async function seed() {
       console.log('✓ Widget SwitchToggle already exists');
     }
 
+    // 7. Créer le widget ActionButton (catalogue)
+    let widgetAction = await Widget.findOne({ where: { name: 'ActionButton' } });
+    if (!widgetAction) {
+      widgetAction = await Widget.create({
+        name: 'ActionButton',
+        libelle: 'Bouton Action',
+        component: 'ActionButton',
+        description: 'Bouton pour une action spécifique (ON, OFF, Toggle)',
+        icon: '⚡',
+        config_schema: {
+          action: {
+            type: 'string',
+            enum: ['on', 'off', 'toggle'],
+            required: true,
+            default: 'off',
+            label: 'Action'
+          },
+          label: {
+            type: 'string',
+            required: true,
+            default: 'Action',
+            label: 'Label du bouton'
+          },
+          color: {
+            type: 'string',
+            enum: ['red', 'green', 'blue', 'purple'],
+            required: true,
+            default: 'red',
+            label: 'Couleur'
+          }
+        }
+      });
+      console.log('✓ Widget ActionButton created');
+    } else {
+      console.log('✓ Widget ActionButton already exists');
+    }
+
     console.log('\n✅ Seed completed successfully');
     console.log('\nℹ️  Login with: admin@home.local / demo123');
     process.exit(0);
