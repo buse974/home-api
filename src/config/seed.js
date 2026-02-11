@@ -1,54 +1,104 @@
 import sequelize from './database.js';
-import { User, Provider } from '../models/index.js';
+import { House, User, Provider, Dashboard, Widget } from '../models/index.js';
 
 async function seed() {
   try {
     await sequelize.authenticate();
     console.log('✓ Database connection established');
 
-    // Vérifier si un user existe déjà
+    // 1. Créer la maison
+    let house = await House.findOne({ where: { name: 'Ma Maison' } });
+
+    if (!house) {
+      house = await House.create({
+        name: 'Ma Maison'
+      });
+      console.log('✓ House created: Ma Maison');
+    } else {
+      console.log('✓ House already exists');
+    }
+
+    // 2. Créer l'utilisateur admin
     let user = await User.findOne({ where: { email: 'admin@home.local' } });
 
     if (!user) {
-      // Créer user admin
       user = await User.create({
+        houseId: house.id,
         email: 'admin@home.local',
         password: 'demo123',
-        name: 'Admin'
+        name: 'Admin',
+        role: 'admin'
       });
       console.log('✓ Admin user created: admin@home.local / demo123');
     } else {
       console.log('✓ Admin user already exists');
     }
 
-    // Vérifier si le provider Jeedom de test existe déjà
-    const existingProvider = await Provider.findOne({
+    // 3. Créer le provider Jeedom
+    let provider = await Provider.findOne({
       where: {
-        userId: user.id,
+        houseId: house.id,
         type: 'jeedom'
       }
     });
 
-    if (!existingProvider) {
-      // Créer provider Jeedom de test
-      await Provider.create({
-        userId: user.id,
+    if (!provider) {
+      provider = await Provider.create({
+        houseId: house.id,
         type: 'jeedom',
-        name: 'Jeedom Test',
+        name: 'Jeedom Principal',
         configEncrypted: {
           url: 'https://home.ti1.fr',
           apiKey: 'p5DsvDmHbpDDUkBUI4D7JOhbSTQ41Q4nQfkn6pNH4Rl52wYQCF3TTsJQ8RG0pmx2'
         }
       });
-      console.log('✓ Test Jeedom provider created');
+      console.log('✓ Jeedom provider created');
     } else {
-      console.log('✓ Test Jeedom provider already exists');
+      console.log('✓ Jeedom provider already exists');
+    }
+
+    // 4. Créer le dashboard par défaut
+    let dashboard = await Dashboard.findOne({
+      where: {
+        houseId: house.id,
+        name: 'Mon Dashboard'
+      }
+    });
+
+    if (!dashboard) {
+      dashboard = await Dashboard.create({
+        houseId: house.id,
+        name: 'Mon Dashboard',
+        isDefault: true
+      });
+      console.log('✓ Dashboard created: Mon Dashboard');
+    } else {
+      console.log('✓ Dashboard already exists');
+    }
+
+    // 5. Créer le widget Switch (catalogue)
+    let widget = await Widget.findOne({ where: { name: 'Switch' } });
+
+    if (!widget) {
+      widget = await Widget.create({
+        name: 'Switch',
+        libelle: 'Interrupteur',
+        component: 'Switch',
+        description: 'Toggle on/off simple',
+        icon: 'toggle-right',
+        config_schema: {}
+      });
+      console.log('✓ Widget Switch created');
+    } else {
+      console.log('✓ Widget Switch already exists');
     }
 
     console.log('\n✅ Seed completed successfully');
+    console.log('\nℹ️  Login with: admin@home.local / demo123');
     process.exit(0);
   } catch (error) {
     console.error('✗ Seed failed:', error);
+    console.error(error.stack);
     process.exit(1);
   }
 }

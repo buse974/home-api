@@ -1,18 +1,17 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
-const Dashboard = sequelize.define('Dashboard', {
+const GenericDevice = sequelize.define('GenericDevice', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true
   },
-  houseId: {
+  provider_id: {
     type: DataTypes.UUID,
     allowNull: false,
-    field: 'house_id',
     references: {
-      model: 'houses',
+      model: 'providers',
       key: 'id'
     },
     onDelete: 'CASCADE'
@@ -21,19 +20,22 @@ const Dashboard = sequelize.define('Dashboard', {
     type: DataTypes.STRING,
     allowNull: false
   },
-  configJson: {
-    type: DataTypes.JSONB,
-    defaultValue: {},
-    field: 'config_json'
+  type: {
+    type: DataTypes.STRING,
+    allowNull: false
   },
-  isDefault: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
-    field: 'is_default'
+  capabilities: {
+    type: DataTypes.JSON,
+    allowNull: false
+  },
+  command_mapping: {
+    type: DataTypes.JSON,
+    allowNull: false
   }
 }, {
-  tableName: 'dashboards',
+  tableName: 'generic_devices',
+  underscored: true,
   timestamps: true
 });
 
-export default Dashboard;
+export default GenericDevice;

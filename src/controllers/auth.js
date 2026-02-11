@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import { User } from '../models/index.js';
 
 export const register = async (req, res) => {
   try {
@@ -13,7 +13,12 @@ export const register = async (req, res) => {
     const user = await User.create({ email, password, name });
 
     const token = jwt.sign(
-      { userId: user.id },
+      {
+        user_id: user.id,
+        house_id: user.houseId,
+        email: user.email,
+        role: user.role
+      },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
@@ -22,7 +27,9 @@ export const register = async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name
+        name: user.name,
+        house_id: user.houseId,
+        role: user.role
       },
       token
     });
@@ -46,7 +53,12 @@ export const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { userId: user.id },
+      {
+        user_id: user.id,
+        house_id: user.houseId,
+        email: user.email,
+        role: user.role
+      },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
@@ -55,7 +67,9 @@ export const login = async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name
+        name: user.name,
+        house_id: user.houseId,
+        role: user.role
       },
       token
     });
@@ -69,7 +83,8 @@ export const me = async (req, res) => {
     user: {
       id: req.user.id,
       email: req.user.email,
-      name: req.user.name
+      house_id: req.user.house_id,
+      role: req.user.role
     }
   });
 };

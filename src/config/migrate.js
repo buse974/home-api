@@ -1,5 +1,5 @@
 import sequelize from './database.js';
-import { User, Provider, Dashboard, DashboardItem } from '../models/index.js';
+import { House, User, Provider, Dashboard, Widget, GenericDevice, DashboardWidget } from '../models/index.js';
 
 async function migrate() {
   try {
@@ -7,12 +7,14 @@ async function migrate() {
     console.log('✓ Database connection established');
 
     // Sync models (create tables)
-    await sequelize.sync({ alter: true });
-    console.log('✓ Database tables synced');
+    // Force: true will drop existing tables and recreate them
+    await sequelize.sync({ force: true });
+    console.log('✓ Database tables created');
 
     process.exit(0);
   } catch (error) {
     console.error('✗ Migration failed:', error);
+    console.error(error.stack);
     process.exit(1);
   }
 }

@@ -1,24 +1,47 @@
+import House from './House.js';
 import User from './User.js';
 import Provider from './Provider.js';
 import Dashboard from './Dashboard.js';
-import DashboardItem from './DashboardItem.js';
+import Widget from './Widget.js';
+import GenericDevice from './GenericDevice.js';
+import DashboardWidget from './DashboardWidget.js';
 
 // Définir les associations entre modèles
 
-// User <-> Provider
-User.hasMany(Provider, { foreignKey: 'userId', as: 'providers' });
-Provider.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+// House <-> User
+House.hasMany(User, { foreignKey: 'houseId', as: 'users' });
+User.belongsTo(House, { foreignKey: 'houseId', as: 'house' });
 
-// User <-> Dashboard
-User.hasMany(Dashboard, { foreignKey: 'userId', as: 'dashboards' });
-Dashboard.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+// House <-> Provider
+House.hasMany(Provider, { foreignKey: 'houseId', as: 'providers' });
+Provider.belongsTo(House, { foreignKey: 'houseId', as: 'house' });
 
-// Dashboard <-> DashboardItem
-Dashboard.hasMany(DashboardItem, { foreignKey: 'dashboardId', as: 'items' });
-DashboardItem.belongsTo(Dashboard, { foreignKey: 'dashboardId', as: 'dashboard' });
+// House <-> Dashboard
+House.hasMany(Dashboard, { foreignKey: 'houseId', as: 'dashboards' });
+Dashboard.belongsTo(House, { foreignKey: 'houseId', as: 'house' });
 
-// Provider <-> DashboardItem
-Provider.hasMany(DashboardItem, { foreignKey: 'providerId', as: 'items' });
-DashboardItem.belongsTo(Provider, { foreignKey: 'providerId', as: 'provider' });
+// Provider <-> GenericDevice
+Provider.hasMany(GenericDevice, { foreignKey: 'provider_id', as: 'devices' });
+GenericDevice.belongsTo(Provider, { foreignKey: 'provider_id', as: 'Provider' });
 
-export { User, Provider, Dashboard, DashboardItem };
+// Dashboard <-> DashboardWidget
+Dashboard.hasMany(DashboardWidget, { foreignKey: 'dashboardId', as: 'DashboardWidgets' });
+DashboardWidget.belongsTo(Dashboard, { foreignKey: 'dashboardId', as: 'Dashboard' });
+
+// Widget <-> DashboardWidget
+Widget.hasMany(DashboardWidget, { foreignKey: 'widgetId', as: 'dashboardWidgets' });
+DashboardWidget.belongsTo(Widget, { foreignKey: 'widgetId', as: 'Widget' });
+
+// GenericDevice <-> DashboardWidget
+GenericDevice.hasMany(DashboardWidget, { foreignKey: 'genericDeviceId', as: 'dashboardWidgets' });
+DashboardWidget.belongsTo(GenericDevice, { foreignKey: 'genericDeviceId', as: 'GenericDevice' });
+
+export {
+  House,
+  User,
+  Provider,
+  Dashboard,
+  Widget,
+  GenericDevice,
+  DashboardWidget
+};

@@ -8,6 +8,16 @@ const User = sequelize.define('User', {
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true
   },
+  houseId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    field: 'house_id',
+    references: {
+      model: 'houses',
+      key: 'id'
+    },
+    onDelete: 'CASCADE'
+  },
   email: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -23,6 +33,10 @@ const User = sequelize.define('User', {
   name: {
     type: DataTypes.STRING,
     allowNull: false
+  },
+  role: {
+    type: DataTypes.STRING,
+    defaultValue: 'admin'
   }
 }, {
   tableName: 'users',

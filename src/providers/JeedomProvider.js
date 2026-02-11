@@ -11,7 +11,6 @@ class JeedomProvider extends BaseProvider {
 
   async connect() {
     try {
-      // Test connection avec JSON RPC
       const response = await axios.post(
         `${this.baseUrl}/core/api/jeeApi.php`,
         {
@@ -28,9 +27,8 @@ class JeedomProvider extends BaseProvider {
     }
   }
 
-  async getDevices() {
+  async listDevices() {
     try {
-      // Récupérer TOUS les équipements via JSON RPC
       const response = await axios.post(
         `${this.baseUrl}/core/api/jeeApi.php`,
         {
@@ -48,85 +46,108 @@ class JeedomProvider extends BaseProvider {
       // Filtrer : uniquement les équipements virtuels actifs et visibles
       const devices = response.data.result.filter(device =>
         device.eqType_name === 'virtual' &&
-        (device.isEnable === 1 || device.isEnable === '1') &&
-        (device.isVisible === 1 || device.isVisible === '1')
+        device.isEnable === 1 &&
+        device.isVisible === 1
       );
 
-      // Pour chaque device, récupérer ses commandes
-      const devicesWithCommands = await Promise.all(
-        devices.map(async (device) => {
-          try {
-            const cmdResponse = await axios.post(
-              `${this.baseUrl}/core/api/jeeApi.php`,
-              {
-                jsonrpc: '2.0',
-                id: '1',
-                method: 'cmd::byEqLogicId',
-                params: { apikey: this.apiKey, eqLogic_id: device.id }
-              }
-            );
-
-            const commands = cmdResponse.data.result || [];
-
-            // Trouver les commandes toggle/on/off
-            const toggleCmd = commands.find(cmd =>
-              cmd.generic_type === 'LIGHT_TOGGLE' ||
-              cmd.name?.toLowerCase() === 'toggle'
-            );
-            const onCmd = commands.find(cmd =>
-              cmd.generic_type === 'LIGHT_ON' ||
-              cmd.name?.toLowerCase() === 'on'
-            );
-            const offCmd = commands.find(cmd =>
-              cmd.generic_type === 'LIGHT_OFF' ||
-              cmd.name?.toLowerCase() === 'off'
-            );
-
-            return {
-              id: device.id,
-              name: device.name,
-              type: this._detectDeviceType(device),
-              room: device.object_id,
-              isEnabled: device.isEnable === '1',
-              toggleCommandId: toggleCmd?.id || onCmd?.id || offCmd?.id,
-              raw: device
-            };
-          } catch (error) {
-            console.error(`Failed to get commands for ${device.name}:`, error.message);
-            return {
-              id: device.id,
-              name: device.name,
-              type: this._detectDeviceType(device),
-              room: device.object_id,
-              isEnabled: device.isEnable === '1',
-              toggleCommandId: null,
-              raw: device
-            };
-          }
-        })
-      );
-
-      return devicesWithCommands;
+      // Convertir au format unifié
+      return Promise.all(devices.map(d => this.toGenericDevice(d)));
     } catch (error) {
-      console.error('Failed to get devices:', error.message);
+      console.error('Failed to list devices:', error.message);
       return [];
     }
   }
 
-  async executeCommand(deviceId, command, params = {}) {
+  async toGenericDevice(jeedomDevice) {
+    const commands = await this.getCommands(jeedomDevice.id);
+
+    return {
+      id: jeedomDevice.id,
+      name: jeedomDevice.name,
+      type: this.detectType(jeedomDevice),
+      capabilities: this.extractCapabilities(commands),
+      command_mapping: {
+        provider_type: 'jeedom',
+        device_id: jeedomDevice.id,
+        commands: this.buildCommandMapping(commands)
+      }
+    };
+  }
+
+  async getCommands(deviceId) {
     try {
-      // Exécuter une commande via JSON RPC
+      const response = await axios.post(
+        `${this.baseUrl}/core/api/jeeApi.php`,
+        {
+          jsonrpc: '2.0',
+          id: '1',
+          method: 'cmd::byEqLogicId',
+          params: { apikey: this.apiKey, eqLogic_id: deviceId }
+        }
+      );
+      return response.data.result || [];
+    } catch (error) {
+      console.error(`Failed to get commands for device ${deviceId}:`, error.message);
+      return [];
+    }
+  }
+
+  extractCapabilities(commands) {
+    return {
+      toggle: commands.some(c => c.generic_type === 'LIGHT_TOGGLE'),
+      dim: commands.some(c => c.generic_type === 'LIGHT_SLIDER'),
+      color: commands.some(c => c.generic_type === 'LIGHT_COLOR'),
+      temperature: commands.some(c => c.generic_type === 'LIGHT_SET_COLOR_TEMP')
+    };
+  }
+
+  buildCommandMapping(commands) {
+    const mapping = {};
+
+    const toggleCmd = commands.find(c => c.generic_type === 'LIGHT_TOGGLE');
+    const onCmd = commands.find(c => c.generic_type === 'LIGHT_ON');
+    const offCmd = commands.find(c => c.generic_type === 'LIGHT_OFF');
+    const dimCmd = commands.find(c => c.generic_type === 'LIGHT_SLIDER');
+    const colorCmd = commands.find(c => c.generic_type === 'LIGHT_COLOR');
+
+    if (toggleCmd) mapping.toggle = toggleCmd.id;
+    if (onCmd) mapping.on = onCmd.id;
+    if (offCmd) mapping.off = offCmd.id;
+    if (dimCmd) mapping.dim = dimCmd.id;
+    if (colorCmd) mapping.color = colorCmd.id;
+
+    return mapping;
+  }
+
+  detectType(device) {
+    if (device.eqType_name === 'light') return 'light';
+    if (device.eqType_name === 'heating') return 'thermostat';
+    return 'switch';
+  }
+
+  async executeCapability(deviceId, capability, params = {}) {
+    try {
+      // deviceId ici est le provider_device_id (ex: "13")
+      // Il faudrait idéalement récupérer command_mapping depuis DB
+      // Pour l'instant on cherche la commande
+      const commands = await this.getCommands(deviceId);
+      const mapping = this.buildCommandMapping(commands);
+      const commandId = mapping[capability];
+
+      if (!commandId) {
+        throw new Error(`Capability '${capability}' not available for device ${deviceId}`);
+      }
+
       const requestParams = {
         apikey: this.apiKey,
-        id: parseInt(command)
+        id: parseInt(commandId)
       };
 
-      // Si c'est un slider, ajouter les options
-      if (params.value !== undefined) {
+      if (capability === 'dim' && params.value !== undefined) {
         requestParams.options = { slider: params.value };
       }
 
-      const response = await axios.post(
+      await axios.post(
         `${this.baseUrl}/core/api/jeeApi.php`,
         {
           jsonrpc: '2.0',
@@ -135,11 +156,36 @@ class JeedomProvider extends BaseProvider {
           params: requestParams
         }
       );
-
-      return response.data.result;
     } catch (error) {
-      console.error('Failed to execute command:', error.message);
+      console.error('Failed to execute capability:', error.message);
       throw error;
+    }
+  }
+
+  async getDeviceState(deviceId) {
+    try {
+      const commands = await this.getCommands(deviceId);
+      const stateCmd = commands.find(c =>
+        c.type === 'info' && c.generic_type === 'LIGHT_STATE_BOOL'
+      );
+
+      if (stateCmd) {
+        const response = await axios.post(
+          `${this.baseUrl}/core/api/jeeApi.php`,
+          {
+            jsonrpc: '2.0',
+            id: '1',
+            method: 'cmd::execCmd',
+            params: { apikey: this.apiKey, id: stateCmd.id }
+          }
+        );
+        return { isOn: response.data.result === 1 };
+      }
+
+      return {};
+    } catch (error) {
+      console.error('Failed to get device state:', error.message);
+      return {};
     }
   }
 
@@ -158,39 +204,24 @@ class JeedomProvider extends BaseProvider {
               datetime: this.lastDatetime || 0
             }
           },
-          {
-            timeout: 60000 // 60s timeout pour le long polling
-          }
+          { timeout: 60000 }
         );
 
         if (response.data.result) {
           this.lastDatetime = response.data.result.datetime;
-
-          // Appeler le callback avec les changements
           if (response.data.result.result) {
             callback(response.data.result.result);
           }
         }
 
-        // Continuer le polling
         setImmediate(poll);
       } catch (error) {
         console.error('Polling error:', error.message);
-        // Retry après 5s en cas d'erreur
         setTimeout(poll, 5000);
       }
     };
 
     poll();
-  }
-
-  _detectDeviceType(device) {
-    // Détecter le type via les commandes ou le type
-    if (device.eqType_name === 'light') return 'light';
-    if (device.eqType_name === 'heating') return 'heating';
-
-    // Par défaut
-    return 'switch';
   }
 }
 

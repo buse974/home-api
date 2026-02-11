@@ -4,51 +4,63 @@
  */
 class BaseProvider {
   constructor(config) {
+    if (new.target === BaseProvider) {
+      throw new Error("Cannot instantiate abstract class BaseProvider");
+    }
     this.config = config;
   }
 
   /**
-   * Se connecter au provider
+   * Tester la connexion au provider
    * @returns {Promise<boolean>}
    */
   async connect() {
-    throw new Error('connect() must be implemented');
+    throw new Error("Method 'connect()' must be implemented");
   }
 
   /**
-   * Récupérer tous les devices
-   * @returns {Promise<Array>}
+   * Lister tous les devices disponibles (format unifié)
+   * @returns {Promise<Array<GenericDevice>>}
    */
-  async getDevices() {
-    throw new Error('getDevices() must be implemented');
+  async listDevices() {
+    throw new Error("Method 'listDevices()' must be implemented");
   }
 
   /**
-   * Exécuter une commande sur un device
+   * Récupérer l'état d'un device
    * @param {string} deviceId
-   * @param {string} command
-   * @param {object} params
-   * @returns {Promise<any>}
+   * @returns {Promise<Object>} État unifié {isOn, brightness, temperature, color}
    */
-  async executeCommand(deviceId, command, params = {}) {
-    throw new Error('executeCommand() must be implemented');
+  async getDeviceState(deviceId) {
+    throw new Error("Method 'getDeviceState()' must be implemented");
   }
 
   /**
-   * S'abonner aux changements d'état (temps réel)
-   * @param {function} callback
+   * Exécuter une capability sur un device
+   * @param {string} deviceId - ID du device dans le provider
+   * @param {string} capability - "toggle", "dim", "color", "temperature"
+   * @param {Object} params - {value: 50} pour dim, {r,g,b} pour color
+   * @returns {Promise<void>}
+   */
+  async executeCapability(deviceId, capability, params = {}) {
+    throw new Error("Method 'executeCapability()' must be implemented");
+  }
+
+  /**
+   * S'abonner aux changements en temps réel
+   * @param {Function} callback - Appelé quand un device change
    * @returns {Promise<void>}
    */
   async subscribe(callback) {
-    throw new Error('subscribe() must be implemented');
+    throw new Error("Method 'subscribe()' must be implemented");
   }
 
   /**
-   * Se déconnecter du provider
+   * Se désabonner
    * @returns {Promise<void>}
    */
-  async disconnect() {
-    // Optionnel
+  async unsubscribe() {
+    // Optionnel, implémentation par défaut vide
   }
 }
 

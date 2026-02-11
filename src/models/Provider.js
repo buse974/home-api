@@ -30,10 +30,15 @@ const Provider = sequelize.define('Provider', {
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true
   },
-  userId: {
+  houseId: {
     type: DataTypes.UUID,
     allowNull: false,
-    field: 'user_id'
+    field: 'house_id',
+    references: {
+      model: 'houses',
+      key: 'id'
+    },
+    onDelete: 'CASCADE'
   },
   type: {
     type: DataTypes.ENUM('jeedom', 'mqtt', 'homeassistant', 'zigbee2mqtt'),
