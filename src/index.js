@@ -1,15 +1,15 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import swaggerUi from 'swagger-ui-express';
-import sequelize from './config/database.js';
-import './models/index.js'; // Charger les associations
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import swaggerUi from "swagger-ui-express";
+import sequelize from "./config/database.js";
+import "./models/index.js"; // Charger les associations
 
 // Routes
-import authRoutes from './routes/auth.js';
-import providerRoutes from './routes/providers.js';
-import dashboardRoutes from './routes/dashboards.js';
-import deviceRoutes from './routes/devices.js';
+import authRoutes from "./routes/auth.js";
+import providerRoutes from "./routes/providers.js";
+import dashboardRoutes from "./routes/dashboards.js";
+import deviceRoutes from "./routes/devices.js";
 
 dotenv.config();
 
@@ -18,180 +18,193 @@ const PORT = process.env.PORT || 3000;
 
 // Swagger documentation
 const swaggerDocument = {
-  openapi: '3.0.0',
+  openapi: "3.0.0",
   info: {
-    title: 'Home API',
-    version: '1.0.0',
-    description: 'API multi-tenant pour piloter installations domotiques (Jeedom, MQTT, Home Assistant)'
+    title: "Home API",
+    version: "1.0.0",
+    description:
+      "API multi-tenant pour piloter installations domotiques (Jeedom, MQTT, Home Assistant)",
   },
   servers: [
-    { url: 'http://localhost:3000', description: 'Local' },
-    { url: 'https://api.home.51.77.223.61.nip.io', description: 'Production' }
+    { url: "http://localhost:3000", description: "Local" },
+    { url: "https://api.home.51.77.223.61.nip.io", description: "Production" },
   ],
   components: {
     securitySchemes: {
       bearerAuth: {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT'
-      }
-    }
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+      },
+    },
   },
   security: [{ bearerAuth: [] }],
   paths: {
-    '/health': {
+    "/health": {
       get: {
-        summary: 'Health check',
-        tags: ['System'],
+        summary: "Health check",
+        tags: ["System"],
         responses: {
-          200: { description: 'OK' }
-        }
-      }
+          200: { description: "OK" },
+        },
+      },
     },
-    '/auth/register': {
+    "/auth/register": {
       post: {
-        summary: 'Register a new user',
-        tags: ['Auth'],
+        summary: "Register a new user",
+        tags: ["Auth"],
         requestBody: {
           required: true,
           content: {
-            'application/json': {
+            "application/json": {
               schema: {
-                type: 'object',
+                type: "object",
                 properties: {
-                  email: { type: 'string' },
-                  password: { type: 'string' },
-                  name: { type: 'string' }
-                }
-              }
-            }
-          }
+                  email: { type: "string" },
+                  password: { type: "string" },
+                  name: { type: "string" },
+                },
+              },
+            },
+          },
         },
         responses: {
-          201: { description: 'User created' }
-        }
-      }
+          201: { description: "User created" },
+        },
+      },
     },
-    '/auth/login': {
+    "/auth/login": {
       post: {
-        summary: 'Login',
-        tags: ['Auth'],
+        summary: "Login",
+        tags: ["Auth"],
         requestBody: {
           required: true,
           content: {
-            'application/json': {
+            "application/json": {
               schema: {
-                type: 'object',
+                type: "object",
                 properties: {
-                  email: { type: 'string' },
-                  password: { type: 'string' }
-                }
-              }
-            }
-          }
+                  email: { type: "string" },
+                  password: { type: "string" },
+                },
+              },
+            },
+          },
         },
         responses: {
-          200: { description: 'Login successful' }
-        }
-      }
+          200: { description: "Login successful" },
+        },
+      },
     },
-    '/providers': {
+    "/providers": {
       get: {
-        summary: 'Get all providers',
-        tags: ['Providers'],
+        summary: "Get all providers",
+        tags: ["Providers"],
         responses: {
-          200: { description: 'List of providers' }
-        }
+          200: { description: "List of providers" },
+        },
       },
       post: {
-        summary: 'Add a new provider',
-        tags: ['Providers'],
+        summary: "Add a new provider",
+        tags: ["Providers"],
         requestBody: {
           required: true,
           content: {
-            'application/json': {
+            "application/json": {
               schema: {
-                type: 'object',
+                type: "object",
                 properties: {
-                  type: { type: 'string', enum: ['jeedom', 'mqtt', 'homeassistant'] },
-                  name: { type: 'string' },
-                  config: { type: 'object' }
-                }
-              }
-            }
-          }
+                  type: {
+                    type: "string",
+                    enum: ["jeedom", "mqtt", "homeassistant"],
+                  },
+                  name: { type: "string" },
+                  config: { type: "object" },
+                },
+              },
+            },
+          },
         },
         responses: {
-          201: { description: 'Provider created' }
-        }
-      }
+          201: { description: "Provider created" },
+        },
+      },
     },
-    '/dashboards': {
+    "/dashboards": {
       get: {
-        summary: 'Get all dashboards',
-        tags: ['Dashboards'],
+        summary: "Get all dashboards",
+        tags: ["Dashboards"],
         responses: {
-          200: { description: 'List of dashboards' }
-        }
+          200: { description: "List of dashboards" },
+        },
       },
       post: {
-        summary: 'Create a dashboard',
-        tags: ['Dashboards'],
+        summary: "Create a dashboard",
+        tags: ["Dashboards"],
         responses: {
-          201: { description: 'Dashboard created' }
-        }
-      }
+          201: { description: "Dashboard created" },
+        },
+      },
     },
-    '/devices/{providerId}': {
+    "/devices/{providerId}": {
       get: {
-        summary: 'Get devices from a provider',
-        tags: ['Devices'],
+        summary: "Get devices from a provider",
+        tags: ["Devices"],
         parameters: [
           {
-            name: 'providerId',
-            in: 'path',
+            name: "providerId",
+            in: "path",
             required: true,
-            schema: { type: 'string' }
-          }
+            schema: { type: "string" },
+          },
         ],
         responses: {
-          200: { description: 'List of devices' }
-        }
-      }
-    }
-  }
+          200: { description: "List of devices" },
+        },
+      },
+    },
+  },
 };
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: [
+    "http://localhost:5173", // Vite dev
+    "http://localhost:8080", // Vite dev
+    "https://app.home.51.77.223.61.nip.io", // Prod frontend
+  ],
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Swagger UI
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'home-api', type: 'api' });
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", service: "home-api", type: "api" });
 });
 
 // Routes
-app.use('/auth', authRoutes);
-app.use('/providers', providerRoutes);
-app.use('/dashboards', dashboardRoutes);
-app.use('/devices', deviceRoutes);
+app.use("/auth", authRoutes);
+app.use("/providers", providerRoutes);
+app.use("/dashboards", dashboardRoutes);
+app.use("/devices", deviceRoutes);
 
 // Start server
 const start = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✓ Database connected');
+    console.log("✓ Database connected");
 
     app.listen(PORT, () => {
       console.log(`✓ Server running on port ${PORT}`);
       console.log(`✓ Swagger docs: http://localhost:${PORT}/docs`);
     });
   } catch (error) {
-    console.error('✗ Failed to start server:', error);
+    console.error("✗ Failed to start server:", error);
     process.exit(1);
   }
 };
