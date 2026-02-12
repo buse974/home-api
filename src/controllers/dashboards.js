@@ -157,11 +157,9 @@ export const addWidget = async (req, res) => {
     });
 
     if (devices.length !== genericDeviceIds.length) {
-      return res
-        .status(404)
-        .json({
-          error: "One or more devices not found or do not belong to this house",
-        });
+      return res.status(404).json({
+        error: "One or more devices not found or do not belong to this house",
+      });
     }
 
     // Créer le DashboardWidget et ses associations dans une transaction atomique
@@ -246,12 +244,9 @@ export const updateWidget = async (req, res) => {
       });
 
       if (devices.length !== genericDeviceIds.length) {
-        return res
-          .status(404)
-          .json({
-            error:
-              "One or more devices not found or do not belong to this house",
-          });
+        return res.status(404).json({
+          error: "One or more devices not found or do not belong to this house",
+        });
       }
     }
 
@@ -551,6 +546,7 @@ export const getWidgets = async (req, res) => {
         "component",
         "description",
         "icon",
+        "category",
         "config_schema",
       ],
     });
