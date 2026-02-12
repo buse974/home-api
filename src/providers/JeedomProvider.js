@@ -279,6 +279,11 @@ class JeedomProvider extends BaseProvider {
 
       const normalizeIsOn = (value) => {
         if (value === null || value === undefined) return undefined;
+        if (typeof value === "object") {
+          if (value.value !== undefined) return normalizeIsOn(value.value);
+          if (value.state !== undefined) return normalizeIsOn(value.state);
+          return undefined;
+        }
         if (typeof value === "boolean") return value;
         if (typeof value === "number") return value > 0;
 
