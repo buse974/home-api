@@ -241,24 +241,57 @@ export const updateWidget = async (req, res) => {
   }
 };
 
-// DELETE /dashboard-widgets/:id - Supprimer un widget
+// DELETE /dashboard-widgets/:id - Supprimer un widget et nettoyer les devices orphelins
 export const deleteWidget = async (req, res) => {
   try {
     const dashboardWidget = await DashboardWidget.findOne({
       where: { id: req.params.id },
-      include: [{
-        model: Dashboard,
-        as: 'Dashboard',
-        where: { houseId: req.user.house_id }
-      }]
+      include: [
+        {
+          model: Dashboard,
+          as: 'Dashboard',
+          where: { houseId: req.user.house_id }
+        },
+        {
+          model: GenericDevice,
+          as: 'GenericDevices',
+          through: { attributes: [] }
+        }
+      ]
     });
 
     if (!dashboardWidget) {
       return res.status(404).json({ error: 'Widget not found' });
     }
 
-    await dashboardWidget.destroy();
-    res.json({ success: true });
+    // Récupérer les IDs des devices liés avant suppression
+    const deviceIds = dashboardWidget.GenericDevices.map(d => d.id);
+
+    // Supprimer le widget dans une transaction
+    await sequelize.transaction(async (t) => {
+      // Supprimer le DashboardWidget (les associations via DashboardWidgetDevice seront supprimées automatiquement)
+      await dashboardWidget.destroy({ transaction: t });
+
+      // Pour chaque device, vérifier s'il est orphelin
+      for (const deviceId of deviceIds) {
+        // Compter combien d'autres widgets utilisent encore ce device
+        const usageCount = await DashboardWidgetDevice.count({
+          where: { genericDeviceId: deviceId },
+          transaction: t
+        });
+
+        // Si plus aucun widget ne l'utilise, le supprimer
+        if (usageCount === 0) {
+          await GenericDevice.destroy({
+            where: { id: deviceId },
+            transaction: t
+          });
+          console.log(`🗑️  GenericDevice ${deviceId} supprimé (orphelin)`);
+        }
+      }
+    });
+
+    res.json({ success: true, orphansDeleted: deviceIds.length });
   } catch (error) {
     console.error('Delete widget error:', error);
     res.status(500).json({ error: error.message });
@@ -420,6 +453,39 @@ export const getWidgets = async (req, res) => {
     res.json({ widgets });
   } catch (error) {
     console.error('List widgets error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET /dashboard-widgets/all - Liste de TOUS les DashboardWidgets de la maison (pour admin)
+export const getAllDashboardWidgets = async (req, res) => {
+  try {
+    const dashboardWidgets = await DashboardWidget.findAll({
+      include: [
+        {
+          model: Dashboard,
+          as: 'Dashboard',
+          where: { houseId: req.user.house_id },
+          attributes: ['id', 'name']
+        },
+        {
+          model: Widget,
+          as: 'Widget',
+          attributes: ['id', 'name', 'libelle', 'component', 'icon']
+        },
+        {
+          model: GenericDevice,
+          as: 'GenericDevices',
+          attributes: ['id', 'name', 'type', 'capabilities'],
+          through: { attributes: [] }
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json({ dashboardWidgets });
+  } catch (error) {
+    console.error('List all dashboard widgets error:', error);
     res.status(500).json({ error: error.message });
   }
 };

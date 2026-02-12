@@ -7,6 +7,7 @@ import {
   updateWidget,
   deleteWidget,
   getWidgets,
+  getAllDashboardWidgets,
   executeWidgetCommand,
   getWidgetState
 } from '../controllers/dashboards.js';
@@ -18,6 +19,9 @@ router.use(authenticate);
 
 // Catalogue de widgets (AVANT les routes avec params)
 router.get('/widgets/catalogue', getWidgets);
+
+// Liste de TOUS les DashboardWidgets (pour admin)
+router.get('/widgets/all', getAllDashboardWidgets);
 
 // Dashboards
 router.get('/', getDashboards);
