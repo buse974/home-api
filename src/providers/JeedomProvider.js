@@ -194,9 +194,9 @@ class JeedomProvider extends BaseProvider {
         requestParams.options = { slider: params.value };
       }
 
-      console.log(`🚀 [Jeedom] Executing command ${commandId} (capability: ${capability}) for device ${deviceId}`);
+      console.log(`🚀 [Jeedom] Executing command ${commandId} (capability: ${capability}) for device ${deviceId}`, requestParams);
 
-      await axios.post(
+      const response = await axios.post(
         `${this.baseUrl}/core/api/jeeApi.php`,
         {
           jsonrpc: '2.0',
@@ -205,8 +205,13 @@ class JeedomProvider extends BaseProvider {
           params: requestParams
         }
       );
+
+      console.log(`✅ [Jeedom] Response:`, response.data);
     } catch (error) {
-      console.error('Failed to execute capability:', error.message);
+      console.error('❌ [Jeedom] Failed to execute capability:', error.message);
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+      }
       throw error;
     }
   }
