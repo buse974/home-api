@@ -243,9 +243,13 @@ class JeedomProvider extends BaseProvider {
             params: { apikey: this.apiKey, id: stateCmd.id }
           }
         );
-        return { isOn: response.data.result === 1 };
+        const rawValue = response.data.result;
+        const isOn = rawValue === 1 || rawValue === '1';
+        console.log(`💡 [Jeedom] Device ${deviceId} state: raw=${rawValue}, isOn=${isOn}`);
+        return { isOn };
       }
 
+      console.log(`⚠️  [Jeedom] No state command found for device ${deviceId}`);
       return {};
     } catch (error) {
       console.error('Failed to get device state:', error.message);
