@@ -369,6 +369,16 @@ function decryptConfig(provider) {
   return provider.configEncrypted;
 }
 
+const LOG_RT_STATE = process.env.LOG_RT_STATE !== "0";
+
+function logRtState(message, payload = {}) {
+  if (!LOG_RT_STATE) return;
+  console.log(`[RT-STATE] ${message}`, {
+    at: new Date().toISOString(),
+    ...payload,
+  });
+}
+
 // POST /dashboard-widgets/:id/execute - Exécuter une commande sur TOUS les devices du widget
 export const executeWidgetCommand = async (req, res) => {
   try {
@@ -457,6 +467,12 @@ export const executeWidgetCommand = async (req, res) => {
 // GET /dashboard-widgets/:id/state - Récupérer l'état de TOUS les devices du widget
 export const getWidgetState = async (req, res) => {
   try {
+    logRtState("poll received", {
+      widgetId: req.params.id,
+      houseId: req.user.house_id,
+      userId: req.user.id,
+    });
+
     // Récupérer le widget avec tous ses devices
     const dashboardWidget = await DashboardWidget.findOne({
       where: { id: req.params.id },
@@ -481,12 +497,14 @@ export const getWidgetState = async (req, res) => {
     });
 
     if (!dashboardWidget) {
+      logRtState("widget not found", { widgetId: req.params.id });
       return res.status(404).json({ error: "Widget not found" });
     }
 
     const devices = dashboardWidget.GenericDevices;
 
     if (!devices || devices.length === 0) {
+      logRtState("widget has no devices", { widgetId: req.params.id });
       return res
         .status(400)
         .json({ error: "No devices associated with this widget" });
@@ -524,12 +542,31 @@ export const getWidgetState = async (req, res) => {
         error: r.reason.message,
       }));
 
+    logRtState("poll result", {
+      widgetId: req.params.id,
+      total: devices.length,
+      succeeded: succeeded.length,
+      failed: failed.length,
+      states: succeeded.map((deviceState) => ({
+        deviceId: deviceState.deviceId,
+        deviceName: deviceState.deviceName,
+        isOn: deviceState.state?.isOn,
+        rawValue: deviceState.state?.rawValue,
+        source: deviceState.state?.source,
+      })),
+      errors: failed,
+    });
+
     res.json({
       devices: succeeded,
       errors: failed,
       total: devices.length,
     });
   } catch (error) {
+    logRtState("poll error", {
+      widgetId: req.params.id,
+      error: error.message,
+    });
     console.error("Get widget state error:", error);
     res.status(500).json({ error: error.message });
   }
