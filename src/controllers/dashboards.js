@@ -1,17 +1,24 @@
-import { Dashboard, Widget, GenericDevice, DashboardWidget, DashboardWidgetDevice, Provider } from '../models/index.js';
-import sequelize from '../config/database.js';
-import ProviderFactory from '../providers/ProviderFactory.js';
+import {
+  Dashboard,
+  Widget,
+  GenericDevice,
+  DashboardWidget,
+  DashboardWidgetDevice,
+  Provider,
+} from "../models/index.js";
+import sequelize from "../config/database.js";
+import ProviderFactory from "../providers/ProviderFactory.js";
 
 // GET /dashboards - Liste des dashboards de la maison
 export const getDashboards = async (req, res) => {
   try {
     const dashboards = await Dashboard.findAll({
-      where: { houseId: req.user.house_id }
+      where: { houseId: req.user.house_id },
     });
 
     res.json({ dashboards });
   } catch (error) {
-    console.error('List dashboards error:', error);
+    console.error("List dashboards error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -22,34 +29,36 @@ export const getDashboard = async (req, res) => {
     const dashboard = await Dashboard.findOne({
       where: {
         id: req.params.id,
-        houseId: req.user.house_id
+        houseId: req.user.house_id,
       },
-      include: [{
-        model: DashboardWidget,
-        as: 'DashboardWidgets',
-        include: [
-          {
-            model: Widget,
-            as: 'Widget',
-            attributes: ['id', 'name', 'libelle', 'component', 'icon']
-          },
-          {
-            model: GenericDevice,
-            as: 'GenericDevices',
-            attributes: ['id', 'name', 'type', 'capabilities'],
-            through: { attributes: [] }
-          }
-        ]
-      }]
+      include: [
+        {
+          model: DashboardWidget,
+          as: "DashboardWidgets",
+          include: [
+            {
+              model: Widget,
+              as: "Widget",
+              attributes: ["id", "name", "libelle", "component", "icon"],
+            },
+            {
+              model: GenericDevice,
+              as: "GenericDevices",
+              attributes: ["id", "name", "type", "capabilities"],
+              through: { attributes: [] },
+            },
+          ],
+        },
+      ],
     });
 
     if (!dashboard) {
-      return res.status(404).json({ error: 'Dashboard not found' });
+      return res.status(404).json({ error: "Dashboard not found" });
     }
 
     res.json({ dashboard });
   } catch (error) {
-    console.error('Get dashboard error:', error);
+    console.error("Get dashboard error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -62,12 +71,40 @@ export const createDashboard = async (req, res) => {
     const dashboard = await Dashboard.create({
       houseId: req.user.house_id,
       name,
-      isDefault
+      isDefault,
     });
 
     res.status(201).json({ dashboard });
   } catch (error) {
-    console.error('Create dashboard error:', error);
+    console.error("Create dashboard error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// PUT /dashboards/:id - Renommer un dashboard
+export const updateDashboard = async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    if (typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ error: "Name is required" });
+    }
+
+    const dashboard = await Dashboard.findOne({
+      where: {
+        id: req.params.id,
+        houseId: req.user.house_id,
+      },
+    });
+
+    if (!dashboard) {
+      return res.status(404).json({ error: "Dashboard not found" });
+    }
+
+    await dashboard.update({ name: name.trim() });
+    res.json({ dashboard });
+  } catch (error) {
+    console.error("Update dashboard error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -75,79 +112,95 @@ export const createDashboard = async (req, res) => {
 // POST /dashboards/:dashboardId/widgets - Ajouter un widget au dashboard
 export const addWidget = async (req, res) => {
   try {
-    const { widgetId, genericDeviceIds, config = {}, position = { x: 0, y: 0, w: 2, h: 1 } } = req.body;
+    const {
+      widgetId,
+      genericDeviceIds,
+      config = {},
+      position = { x: 0, y: 0, w: 2, h: 1 },
+    } = req.body;
 
     // Valider que genericDeviceIds est un array non vide
     if (!Array.isArray(genericDeviceIds) || genericDeviceIds.length === 0) {
-      return res.status(400).json({ error: 'genericDeviceIds must be a non-empty array' });
+      return res
+        .status(400)
+        .json({ error: "genericDeviceIds must be a non-empty array" });
     }
 
     // Vérifier que le dashboard appartient à la maison
     const dashboard = await Dashboard.findOne({
       where: {
         id: req.params.dashboardId,
-        houseId: req.user.house_id
-      }
+        houseId: req.user.house_id,
+      },
     });
 
     if (!dashboard) {
-      return res.status(404).json({ error: 'Dashboard not found' });
+      return res.status(404).json({ error: "Dashboard not found" });
     }
 
     // Vérifier que le widget existe
     const widget = await Widget.findByPk(widgetId);
     if (!widget) {
-      return res.status(404).json({ error: 'Widget not found' });
+      return res.status(404).json({ error: "Widget not found" });
     }
 
     // Vérifier que TOUS les devices appartiennent à la maison
     const devices = await GenericDevice.findAll({
       where: { id: genericDeviceIds },
-      include: [{
-        model: Provider,
-        as: 'Provider',
-        where: { houseId: req.user.house_id }
-      }]
+      include: [
+        {
+          model: Provider,
+          as: "Provider",
+          where: { houseId: req.user.house_id },
+        },
+      ],
     });
 
     if (devices.length !== genericDeviceIds.length) {
-      return res.status(404).json({ error: 'One or more devices not found or do not belong to this house' });
+      return res
+        .status(404)
+        .json({
+          error: "One or more devices not found or do not belong to this house",
+        });
     }
 
     // Créer le DashboardWidget et ses associations dans une transaction atomique
     const result = await sequelize.transaction(async (t) => {
       // Créer le DashboardWidget SANS genericDeviceId
-      const dashboardWidget = await DashboardWidget.create({
-        dashboardId: req.params.dashboardId,
-        widgetId,
-        config,
-        position
-      }, { transaction: t });
+      const dashboardWidget = await DashboardWidget.create(
+        {
+          dashboardId: req.params.dashboardId,
+          widgetId,
+          config,
+          position,
+        },
+        { transaction: t },
+      );
 
       // Créer les associations via DashboardWidgetDevice
-      const associations = genericDeviceIds.map(deviceId => ({
+      const associations = genericDeviceIds.map((deviceId) => ({
         dashboardWidgetId: dashboardWidget.id,
-        genericDeviceId: deviceId
+        genericDeviceId: deviceId,
       }));
       await DashboardWidgetDevice.bulkCreate(associations, { transaction: t });
 
       // Recharger avec les associations pour la réponse
       return await DashboardWidget.findByPk(dashboardWidget.id, {
         include: [
-          { model: Widget, as: 'Widget' },
+          { model: Widget, as: "Widget" },
           {
             model: GenericDevice,
-            as: 'GenericDevices',
-            through: { attributes: [] }
-          }
+            as: "GenericDevices",
+            through: { attributes: [] },
+          },
         ],
-        transaction: t
+        transaction: t,
       });
     });
 
     res.status(201).json({ dashboardWidget: result });
   } catch (error) {
-    console.error('Add widget error:', error);
+    console.error("Add widget error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -155,39 +208,50 @@ export const addWidget = async (req, res) => {
 // PUT /dashboard-widgets/:id - Mettre à jour un widget
 export const updateWidget = async (req, res) => {
   try {
-    const { config, position, genericDeviceIds } = req.body;
+    const { name, config, position, genericDeviceIds } = req.body;
 
     const dashboardWidget = await DashboardWidget.findOne({
       where: { id: req.params.id },
-      include: [{
-        model: Dashboard,
-        as: 'Dashboard',
-        where: { houseId: req.user.house_id }
-      }]
+      include: [
+        {
+          model: Dashboard,
+          as: "Dashboard",
+          where: { houseId: req.user.house_id },
+        },
+      ],
     });
 
     if (!dashboardWidget) {
-      return res.status(404).json({ error: 'Widget not found' });
+      return res.status(404).json({ error: "Widget not found" });
     }
 
     // Valider genericDeviceIds si fourni (avant transaction)
     if (genericDeviceIds !== undefined) {
       if (!Array.isArray(genericDeviceIds) || genericDeviceIds.length === 0) {
-        return res.status(400).json({ error: 'genericDeviceIds must be a non-empty array' });
+        return res
+          .status(400)
+          .json({ error: "genericDeviceIds must be a non-empty array" });
       }
 
       // Vérifier que TOUS les devices appartiennent à la maison
       const devices = await GenericDevice.findAll({
         where: { id: genericDeviceIds },
-        include: [{
-          model: Provider,
-          as: 'Provider',
-          where: { houseId: req.user.house_id }
-        }]
+        include: [
+          {
+            model: Provider,
+            as: "Provider",
+            where: { houseId: req.user.house_id },
+          },
+        ],
       });
 
       if (devices.length !== genericDeviceIds.length) {
-        return res.status(404).json({ error: 'One or more devices not found or do not belong to this house' });
+        return res
+          .status(404)
+          .json({
+            error:
+              "One or more devices not found or do not belong to this house",
+          });
       }
     }
 
@@ -202,6 +266,11 @@ export const updateWidget = async (req, res) => {
         dashboardWidget.position = position;
       }
 
+      if (name !== undefined) {
+        dashboardWidget.name =
+          typeof name === "string" && name.trim() ? name.trim() : null;
+      }
+
       await dashboardWidget.save({ transaction: t });
 
       // Si genericDeviceIds est fourni, mettre à jour les associations
@@ -209,34 +278,36 @@ export const updateWidget = async (req, res) => {
         // Supprimer les anciennes associations
         await DashboardWidgetDevice.destroy({
           where: { dashboardWidgetId: dashboardWidget.id },
-          transaction: t
+          transaction: t,
         });
 
         // Créer les nouvelles associations
-        const associations = genericDeviceIds.map(deviceId => ({
+        const associations = genericDeviceIds.map((deviceId) => ({
           dashboardWidgetId: dashboardWidget.id,
-          genericDeviceId: deviceId
+          genericDeviceId: deviceId,
         }));
-        await DashboardWidgetDevice.bulkCreate(associations, { transaction: t });
+        await DashboardWidgetDevice.bulkCreate(associations, {
+          transaction: t,
+        });
       }
 
       // Recharger avec les associations pour la réponse
       return await DashboardWidget.findByPk(dashboardWidget.id, {
         include: [
-          { model: Widget, as: 'Widget' },
+          { model: Widget, as: "Widget" },
           {
             model: GenericDevice,
-            as: 'GenericDevices',
-            through: { attributes: [] }
-          }
+            as: "GenericDevices",
+            through: { attributes: [] },
+          },
         ],
-        transaction: t
+        transaction: t,
       });
     });
 
     res.json({ dashboardWidget: result });
   } catch (error) {
-    console.error('Update widget error:', error);
+    console.error("Update widget error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -249,23 +320,23 @@ export const deleteWidget = async (req, res) => {
       include: [
         {
           model: Dashboard,
-          as: 'Dashboard',
-          where: { houseId: req.user.house_id }
+          as: "Dashboard",
+          where: { houseId: req.user.house_id },
         },
         {
           model: GenericDevice,
-          as: 'GenericDevices',
-          through: { attributes: [] }
-        }
-      ]
+          as: "GenericDevices",
+          through: { attributes: [] },
+        },
+      ],
     });
 
     if (!dashboardWidget) {
-      return res.status(404).json({ error: 'Widget not found' });
+      return res.status(404).json({ error: "Widget not found" });
     }
 
     // Récupérer les IDs des devices liés avant suppression
-    const deviceIds = dashboardWidget.GenericDevices.map(d => d.id);
+    const deviceIds = dashboardWidget.GenericDevices.map((d) => d.id);
 
     // Supprimer le widget dans une transaction
     await sequelize.transaction(async (t) => {
@@ -277,14 +348,14 @@ export const deleteWidget = async (req, res) => {
         // Compter combien d'autres widgets utilisent encore ce device
         const usageCount = await DashboardWidgetDevice.count({
           where: { genericDeviceId: deviceId },
-          transaction: t
+          transaction: t,
         });
 
         // Si plus aucun widget ne l'utilise, le supprimer
         if (usageCount === 0) {
           await GenericDevice.destroy({
             where: { id: deviceId },
-            transaction: t
+            transaction: t,
           });
           console.log(`🗑️  GenericDevice ${deviceId} supprimé (orphelin)`);
         }
@@ -293,7 +364,7 @@ export const deleteWidget = async (req, res) => {
 
     res.json({ success: true, orphansDeleted: deviceIds.length });
   } catch (error) {
-    console.error('Delete widget error:', error);
+    console.error("Delete widget error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -314,61 +385,76 @@ export const executeWidgetCommand = async (req, res) => {
       include: [
         {
           model: Dashboard,
-          as: 'Dashboard',
-          where: { houseId: req.user.house_id }
+          as: "Dashboard",
+          where: { houseId: req.user.house_id },
         },
         {
           model: GenericDevice,
-          as: 'GenericDevices',
+          as: "GenericDevices",
           through: { attributes: [] },
-          include: [{
-            model: Provider,
-            as: 'Provider'
-          }]
-        }
-      ]
+          include: [
+            {
+              model: Provider,
+              as: "Provider",
+            },
+          ],
+        },
+      ],
     });
 
     if (!dashboardWidget) {
-      return res.status(404).json({ error: 'Widget not found' });
+      return res.status(404).json({ error: "Widget not found" });
     }
 
     const devices = dashboardWidget.GenericDevices;
 
     if (!devices || devices.length === 0) {
-      return res.status(400).json({ error: 'No devices associated with this widget' });
+      return res
+        .status(400)
+        .json({ error: "No devices associated with this widget" });
     }
 
     // Exécuter la commande sur TOUS les devices en parallèle
     const results = await Promise.allSettled(
       devices.map(async (device) => {
         const config = decryptConfig(device.Provider);
-        const providerInstance = ProviderFactory.create(device.Provider.type, config);
+        const providerInstance = ProviderFactory.create(
+          device.Provider.type,
+          config,
+        );
         const providerDeviceId = device.command_mapping.device_id;
 
-        await providerInstance.executeCapability(providerDeviceId, capability, params);
+        await providerInstance.executeCapability(
+          providerDeviceId,
+          capability,
+          params,
+        );
 
         return { deviceId: device.id, deviceName: device.name, success: true };
-      })
+      }),
     );
 
     // Analyser les résultats
-    const succeeded = results.filter(r => r.status === 'fulfilled').map(r => r.value);
-    const failed = results.filter(r => r.status === 'rejected').map((r, i) => ({
-      deviceId: devices[i].id,
-      deviceName: devices[i].name,
-      error: r.reason.message
-    }));
+    const succeeded = results
+      .filter((r) => r.status === "fulfilled")
+      .map((r) => r.value);
+    const failed = results
+      .filter((r) => r.status === "rejected")
+      .map((r, i) => ({
+        deviceId: devices[i].id,
+        deviceName: devices[i].name,
+        error: r.reason.message,
+      }));
 
     res.json({
       success: failed.length === 0,
       executed: succeeded.length,
       total: devices.length,
       succeeded,
-      failed
+      failed,
     });
   } catch (error) {
-    console.error('Execute widget command error:', error);
+    console.error("Execute widget command error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -382,36 +468,43 @@ export const getWidgetState = async (req, res) => {
       include: [
         {
           model: Dashboard,
-          as: 'Dashboard',
-          where: { houseId: req.user.house_id }
+          as: "Dashboard",
+          where: { houseId: req.user.house_id },
         },
         {
           model: GenericDevice,
-          as: 'GenericDevices',
+          as: "GenericDevices",
           through: { attributes: [] },
-          include: [{
-            model: Provider,
-            as: 'Provider'
-          }]
-        }
-      ]
+          include: [
+            {
+              model: Provider,
+              as: "Provider",
+            },
+          ],
+        },
+      ],
     });
 
     if (!dashboardWidget) {
-      return res.status(404).json({ error: 'Widget not found' });
+      return res.status(404).json({ error: "Widget not found" });
     }
 
     const devices = dashboardWidget.GenericDevices;
 
     if (!devices || devices.length === 0) {
-      return res.status(400).json({ error: 'No devices associated with this widget' });
+      return res
+        .status(400)
+        .json({ error: "No devices associated with this widget" });
     }
 
     // Récupérer l'état de TOUS les devices en parallèle
     const states = await Promise.allSettled(
       devices.map(async (device) => {
         const config = decryptConfig(device.Provider);
-        const providerInstance = ProviderFactory.create(device.Provider.type, config);
+        const providerInstance = ProviderFactory.create(
+          device.Provider.type,
+          config,
+        );
         const providerDeviceId = device.command_mapping.device_id;
 
         const state = await providerInstance.getDeviceState(providerDeviceId);
@@ -419,26 +512,30 @@ export const getWidgetState = async (req, res) => {
         return {
           deviceId: device.id,
           deviceName: device.name,
-          state
+          state,
         };
-      })
+      }),
     );
 
     // Analyser les résultats
-    const succeeded = states.filter(r => r.status === 'fulfilled').map(r => r.value);
-    const failed = states.filter(r => r.status === 'rejected').map((r, i) => ({
-      deviceId: devices[i].id,
-      deviceName: devices[i].name,
-      error: r.reason.message
-    }));
+    const succeeded = states
+      .filter((r) => r.status === "fulfilled")
+      .map((r) => r.value);
+    const failed = states
+      .filter((r) => r.status === "rejected")
+      .map((r, i) => ({
+        deviceId: devices[i].id,
+        deviceName: devices[i].name,
+        error: r.reason.message,
+      }));
 
     res.json({
       devices: succeeded,
       errors: failed,
-      total: devices.length
+      total: devices.length,
     });
   } catch (error) {
-    console.error('Get widget state error:', error);
+    console.error("Get widget state error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -447,12 +544,20 @@ export const getWidgetState = async (req, res) => {
 export const getWidgets = async (req, res) => {
   try {
     const widgets = await Widget.findAll({
-      attributes: ['id', 'name', 'libelle', 'component', 'description', 'icon', 'config_schema']
+      attributes: [
+        "id",
+        "name",
+        "libelle",
+        "component",
+        "description",
+        "icon",
+        "config_schema",
+      ],
     });
 
     res.json({ widgets });
   } catch (error) {
-    console.error('List widgets error:', error);
+    console.error("List widgets error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -464,28 +569,28 @@ export const getAllDashboardWidgets = async (req, res) => {
       include: [
         {
           model: Dashboard,
-          as: 'Dashboard',
+          as: "Dashboard",
           where: { houseId: req.user.house_id },
-          attributes: ['id', 'name']
+          attributes: ["id", "name"],
         },
         {
           model: Widget,
-          as: 'Widget',
-          attributes: ['id', 'name', 'libelle', 'component', 'icon']
+          as: "Widget",
+          attributes: ["id", "name", "libelle", "component", "icon"],
         },
         {
           model: GenericDevice,
-          as: 'GenericDevices',
-          attributes: ['id', 'name', 'type', 'capabilities'],
-          through: { attributes: [] }
-        }
+          as: "GenericDevices",
+          attributes: ["id", "name", "type", "capabilities"],
+          through: { attributes: [] },
+        },
       ],
-      order: [['createdAt', 'DESC']]
+      order: [["createdAt", "DESC"]],
     });
 
     res.json({ dashboardWidgets });
   } catch (error) {
-    console.error('Get all dashboard widgets error:', error);
+    console.error("Get all dashboard widgets error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -498,19 +603,19 @@ export const updateDashboardLayouts = async (req, res) => {
     const dashboard = await Dashboard.findOne({
       where: {
         id,
-        houseId: req.user.house_id
-      }
+        houseId: req.user.house_id,
+      },
     });
 
     if (!dashboard) {
-      return res.status(404).json({ error: 'Dashboard not found' });
+      return res.status(404).json({ error: "Dashboard not found" });
     }
 
     await dashboard.update({ layouts });
 
     res.json({ success: true, layouts: dashboard.layouts });
   } catch (error) {
-    console.error('Update dashboard layouts error:', error);
+    console.error("Update dashboard layouts error:", error);
     res.status(500).json({ error: error.message });
   }
 };
