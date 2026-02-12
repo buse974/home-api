@@ -483,6 +483,12 @@ export const getAllDashboardWidgets = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
+    res.json({ dashboardWidgets });
+  } catch (error) {
+    console.error('Get all dashboard widgets error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
 
 export const updateDashboardLayouts = async (req, res) => {
   try {
