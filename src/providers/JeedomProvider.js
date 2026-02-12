@@ -85,7 +85,15 @@ class JeedomProvider extends BaseProvider {
           params: { apikey: this.apiKey, eqLogic_id: deviceId }
         }
       );
-      return response.data.result || [];
+      const commands = response.data.result || [];
+      console.log(`📋 [Jeedom] Commands for device ${deviceId}:`, commands.map(c => ({
+        id: c.id,
+        name: c.name,
+        type: c.type,
+        subType: c.subType,
+        generic_type: c.generic_type
+      })));
+      return commands;
     } catch (error) {
       console.error(`Failed to get commands for device ${deviceId}:`, error.message);
       return [];
@@ -143,6 +151,7 @@ class JeedomProvider extends BaseProvider {
     if (dimCmd) mapping.dim = dimCmd.id;
     if (colorCmd) mapping.color = colorCmd.id;
 
+    console.log(`🗺️  [Jeedom] Command mapping:`, mapping);
     return mapping;
   }
 
@@ -184,6 +193,8 @@ class JeedomProvider extends BaseProvider {
       if (capability === 'dim' && params.value !== undefined) {
         requestParams.options = { slider: params.value };
       }
+
+      console.log(`🚀 [Jeedom] Executing command ${commandId} (capability: ${capability}) for device ${deviceId}`);
 
       await axios.post(
         `${this.baseUrl}/core/api/jeeApi.php`,
