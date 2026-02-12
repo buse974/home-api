@@ -184,8 +184,13 @@ class JeedomProvider extends BaseProvider {
         console.log(
           `📌 Toggle piloté par état pour device ${deviceId} (priorité on/off)`,
         );
-        const state = await this.getDeviceState(deviceId);
-        commandId = state.isOn ? mapping.off : mapping.on;
+        const hasDesiredState = typeof params?.desiredState === "boolean";
+        if (hasDesiredState) {
+          commandId = params.desiredState ? mapping.on : mapping.off;
+        } else {
+          const state = await this.getDeviceState(deviceId);
+          commandId = state.isOn ? mapping.off : mapping.on;
+        }
 
         if (!commandId) {
           // Fallback final sur la commande toggle native si l'une des commandes manque
