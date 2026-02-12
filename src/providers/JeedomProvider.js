@@ -244,8 +244,9 @@ class JeedomProvider extends BaseProvider {
     try {
       const commands = await this.getCommands(deviceId);
 
-      // Chercher une commande d'état binaire (plusieurs generic_type possibles)
+      // Chercher une commande d'état (plusieurs generic_type possibles)
       const stateTypes = [
+        "LIGHT_STATE",
         "LIGHT_STATE_BOOL",
         "ENERGY_STATE",
         "HEATING_STATE",
@@ -255,11 +256,70 @@ class JeedomProvider extends BaseProvider {
         (c) => c.type === "info" && stateTypes.includes(c.generic_type),
       );
 
-      // Fallback : chercher n'importe quelle commande info binaire
+      // Fallback 1 : nom explicite (etat/state/status)
       if (!stateCmd) {
-        stateCmd = commands.find(
-          (c) => c.type === "info" && c.subType === "binary",
-        );
+        stateCmd = commands.find((c) => {
+          if (c.type !== "info") return false;
+          const label = `${c.name || ""} ${c.logicalId || ""}`.toLowerCase();
+          return /etat|state|status/.test(label);
+        });
+      }
+
+      // Fallback 2 : commande info binary/numeric/string
+      if (!stateCmd) {
+        stateCmd = commands.find((c) => {
+          if (c.type !== "info") return false;
+          return (
+            c.subType === "binary" ||
+            c.subType === "numeric" ||
+            c.subType === "string"
+          );
+        });
+      }
+
+      const normalizeIsOn = (value) => {
+        if (value === null || value === undefined) return undefined;
+        if (typeof value === "boolean") return value;
+        if (typeof value === "number") return value > 0;
+
+        if (typeof value === "string") {
+          const normalized = value.trim().toLowerCase();
+          if (
+            normalized === "1" ||
+            normalized === "on" ||
+            normalized === "true" ||
+            normalized === "open" ||
+            normalized === "active"
+          ) {
+            return true;
+          }
+          if (
+            normalized === "0" ||
+            normalized === "off" ||
+            normalized === "false" ||
+            normalized === "closed" ||
+            normalized === "inactive"
+          ) {
+            return false;
+          }
+
+          const asNumber = Number(normalized);
+          if (!Number.isNaN(asNumber)) {
+            return asNumber > 0;
+          }
+        }
+
+        return undefined;
+      };
+
+      if (!stateCmd) {
+        // Dernier fallback: parser directement le cache Jeedom si présent
+        const cachedState = commands.find((c) => c.type === "info" && c.state);
+        if (cachedState) {
+          const rawValue = cachedState.state;
+          const isOn = normalizeIsOn(rawValue);
+          return { isOn, rawValue, source: "cached-info-state" };
+        }
       }
 
       if (stateCmd) {
@@ -273,11 +333,11 @@ class JeedomProvider extends BaseProvider {
           },
         );
         const rawValue = response.data.result;
-        const isOn = rawValue === 1 || rawValue === "1";
+        const isOn = normalizeIsOn(rawValue);
         console.log(
           `💡 [Jeedom] Device ${deviceId} state: raw=${rawValue}, isOn=${isOn}`,
         );
-        return { isOn };
+        return { isOn, rawValue, source: "cmd::execCmd" };
       }
 
       console.log(`⚠️  [Jeedom] No state command found for device ${deviceId}`);
