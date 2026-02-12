@@ -1,5 +1,5 @@
-import BaseProvider from './BaseProvider.js';
-import axios from 'axios';
+import BaseProvider from "./BaseProvider.js";
+import axios from "axios";
 
 class JeedomProvider extends BaseProvider {
   constructor(config) {
@@ -11,49 +11,44 @@ class JeedomProvider extends BaseProvider {
 
   async connect() {
     try {
-      const response = await axios.post(
-        `${this.baseUrl}/core/api/jeeApi.php`,
-        {
-          jsonrpc: '2.0',
-          id: '1',
-          method: 'eqLogic::all',
-          params: { apikey: this.apiKey }
-        }
-      );
+      const response = await axios.post(`${this.baseUrl}/core/api/jeeApi.php`, {
+        jsonrpc: "2.0",
+        id: "1",
+        method: "eqLogic::all",
+        params: { apikey: this.apiKey },
+      });
       return response.status === 200 && response.data.result !== undefined;
     } catch (error) {
-      console.error('Jeedom connection failed:', error.message);
+      console.error("Jeedom connection failed:", error.message);
       return false;
     }
   }
 
   async listDevices() {
     try {
-      const response = await axios.post(
-        `${this.baseUrl}/core/api/jeeApi.php`,
-        {
-          jsonrpc: '2.0',
-          id: '1',
-          method: 'eqLogic::all',
-          params: { apikey: this.apiKey }
-        }
-      );
+      const response = await axios.post(`${this.baseUrl}/core/api/jeeApi.php`, {
+        jsonrpc: "2.0",
+        id: "1",
+        method: "eqLogic::all",
+        params: { apikey: this.apiKey },
+      });
 
       if (!response.data.result) {
         return [];
       }
 
       // Filtrer : uniquement les équipements virtuels actifs et visibles
-      const devices = response.data.result.filter(device =>
-        device.eqType_name === 'virtual' &&
-        device.isEnable === 1 &&
-        device.isVisible === 1
+      const devices = response.data.result.filter(
+        (device) =>
+          device.eqType_name === "virtual" &&
+          device.isEnable === 1 &&
+          device.isVisible === 1,
       );
 
       // Convertir au format unifié
-      return Promise.all(devices.map(d => this.toGenericDevice(d)));
+      return Promise.all(devices.map((d) => this.toGenericDevice(d)));
     } catch (error) {
-      console.error('Failed to list devices:', error.message);
+      console.error("Failed to list devices:", error.message);
       return [];
     }
   }
@@ -67,55 +62,61 @@ class JeedomProvider extends BaseProvider {
       type: this.detectType(jeedomDevice),
       capabilities: this.extractCapabilities(commands),
       command_mapping: {
-        provider_type: 'jeedom',
+        provider_type: "jeedom",
         device_id: jeedomDevice.id,
-        commands: this.buildCommandMapping(commands)
-      }
+        commands: this.buildCommandMapping(commands),
+      },
     };
   }
 
   async getCommands(deviceId) {
     try {
-      const response = await axios.post(
-        `${this.baseUrl}/core/api/jeeApi.php`,
-        {
-          jsonrpc: '2.0',
-          id: '1',
-          method: 'cmd::byEqLogicId',
-          params: { apikey: this.apiKey, eqLogic_id: deviceId }
-        }
-      );
+      const response = await axios.post(`${this.baseUrl}/core/api/jeeApi.php`, {
+        jsonrpc: "2.0",
+        id: "1",
+        method: "cmd::byEqLogicId",
+        params: { apikey: this.apiKey, eqLogic_id: deviceId },
+      });
       const commands = response.data.result || [];
-      console.log(`📋 [Jeedom] Commands for device ${deviceId}:`, commands.map(c => ({
-        id: c.id,
-        name: c.name,
-        type: c.type,
-        subType: c.subType,
-        generic_type: c.generic_type
-      })));
+      console.log(
+        `📋 [Jeedom] Commands for device ${deviceId}:`,
+        commands.map((c) => ({
+          id: c.id,
+          name: c.name,
+          type: c.type,
+          subType: c.subType,
+          generic_type: c.generic_type,
+        })),
+      );
       return commands;
     } catch (error) {
-      console.error(`Failed to get commands for device ${deviceId}:`, error.message);
+      console.error(
+        `Failed to get commands for device ${deviceId}:`,
+        error.message,
+      );
       return [];
     }
   }
 
   extractCapabilities(commands) {
     // Support de plusieurs types de generic_type pour toggle
-    const toggleTypes = ['LIGHT_TOGGLE', 'ENERGY_TOGGLE', 'HEATING_TOGGLE'];
-    const onTypes = ['LIGHT_ON', 'ENERGY_ON', 'HEATING_ON', 'SWITCH_ON'];
-    const offTypes = ['LIGHT_OFF', 'ENERGY_OFF', 'HEATING_OFF', 'SWITCH_OFF'];
+    const toggleTypes = ["LIGHT_TOGGLE", "ENERGY_TOGGLE", "HEATING_TOGGLE"];
+    const onTypes = ["LIGHT_ON", "ENERGY_ON", "HEATING_ON", "SWITCH_ON"];
+    const offTypes = ["LIGHT_OFF", "ENERGY_OFF", "HEATING_OFF", "SWITCH_OFF"];
 
     return {
-      toggle: commands.some(c =>
-        toggleTypes.includes(c.generic_type) ||
-        // Si on a ON + OFF, on peut toggler
-        (commands.some(cmd => onTypes.includes(cmd.generic_type)) &&
-         commands.some(cmd => offTypes.includes(cmd.generic_type)))
+      toggle: commands.some(
+        (c) =>
+          toggleTypes.includes(c.generic_type) ||
+          // Si on a ON + OFF, on peut toggler
+          (commands.some((cmd) => onTypes.includes(cmd.generic_type)) &&
+            commands.some((cmd) => offTypes.includes(cmd.generic_type))),
       ),
-      dim: commands.some(c => c.generic_type === 'LIGHT_SLIDER'),
-      color: commands.some(c => c.generic_type === 'LIGHT_COLOR'),
-      temperature: commands.some(c => c.generic_type === 'LIGHT_SET_COLOR_TEMP')
+      dim: commands.some((c) => c.generic_type === "LIGHT_SLIDER"),
+      color: commands.some((c) => c.generic_type === "LIGHT_COLOR"),
+      temperature: commands.some(
+        (c) => c.generic_type === "LIGHT_SET_COLOR_TEMP",
+      ),
     };
   }
 
@@ -123,26 +124,32 @@ class JeedomProvider extends BaseProvider {
     const mapping = {};
 
     // Support de plusieurs types de generic_type
-    const toggleTypes = ['LIGHT_TOGGLE', 'ENERGY_TOGGLE', 'HEATING_TOGGLE'];
-    const onTypes = ['LIGHT_ON', 'ENERGY_ON', 'HEATING_ON', 'SWITCH_ON'];
-    const offTypes = ['LIGHT_OFF', 'ENERGY_OFF', 'HEATING_OFF', 'SWITCH_OFF'];
+    const toggleTypes = ["LIGHT_TOGGLE", "ENERGY_TOGGLE", "HEATING_TOGGLE"];
+    const onTypes = ["LIGHT_ON", "ENERGY_ON", "HEATING_ON", "SWITCH_ON"];
+    const offTypes = ["LIGHT_OFF", "ENERGY_OFF", "HEATING_OFF", "SWITCH_OFF"];
 
     // Chercher d'abord par generic_type
-    let toggleCmd = commands.find(c => toggleTypes.includes(c.generic_type));
-    let onCmd = commands.find(c => onTypes.includes(c.generic_type));
-    let offCmd = commands.find(c => offTypes.includes(c.generic_type));
-    const dimCmd = commands.find(c => c.generic_type === 'LIGHT_SLIDER');
-    const colorCmd = commands.find(c => c.generic_type === 'LIGHT_COLOR');
+    let toggleCmd = commands.find((c) => toggleTypes.includes(c.generic_type));
+    let onCmd = commands.find((c) => onTypes.includes(c.generic_type));
+    let offCmd = commands.find((c) => offTypes.includes(c.generic_type));
+    const dimCmd = commands.find((c) => c.generic_type === "LIGHT_SLIDER");
+    const colorCmd = commands.find((c) => c.generic_type === "LIGHT_COLOR");
 
     // Fallback : chercher par nom de commande (plus robuste si generic_type non configuré)
     if (!toggleCmd) {
-      toggleCmd = commands.find(c => c.type === 'action' && c.name.toLowerCase() === 'toggle');
+      toggleCmd = commands.find(
+        (c) => c.type === "action" && c.name.toLowerCase() === "toggle",
+      );
     }
     if (!onCmd) {
-      onCmd = commands.find(c => c.type === 'action' && c.name.toLowerCase() === 'on');
+      onCmd = commands.find(
+        (c) => c.type === "action" && c.name.toLowerCase() === "on",
+      );
     }
     if (!offCmd) {
-      offCmd = commands.find(c => c.type === 'action' && c.name.toLowerCase() === 'off');
+      offCmd = commands.find(
+        (c) => c.type === "action" && c.name.toLowerCase() === "off",
+      );
     }
 
     if (toggleCmd) mapping.toggle = toggleCmd.id;
@@ -156,9 +163,9 @@ class JeedomProvider extends BaseProvider {
   }
 
   detectType(device) {
-    if (device.eqType_name === 'light') return 'light';
-    if (device.eqType_name === 'heating') return 'thermostat';
-    return 'switch';
+    if (device.eqType_name === "light") return "light";
+    if (device.eqType_name === "heating") return "thermostat";
+    return "switch";
   }
 
   async executeCapability(deviceId, capability, params = {}) {
@@ -170,47 +177,59 @@ class JeedomProvider extends BaseProvider {
       const mapping = this.buildCommandMapping(commands);
       let commandId = mapping[capability];
 
-      // Toggle virtuel : si toggle demandé mais pas disponible, utiliser on/off selon l'état
-      if (!commandId && capability === 'toggle' && (mapping.on || mapping.off)) {
-        console.log(`📌 Toggle virtuel pour device ${deviceId} (utilisation de on/off)`);
+      // IMPORTANT:
+      // Pour éviter les "toggle" Jeedom ambigus/mal mappés (ex: commande qui force ON),
+      // on privilégie systématiquement ON/OFF quand ils sont disponibles.
+      if (capability === "toggle" && (mapping.on || mapping.off)) {
+        console.log(
+          `📌 Toggle piloté par état pour device ${deviceId} (priorité on/off)`,
+        );
         const state = await this.getDeviceState(deviceId);
         commandId = state.isOn ? mapping.off : mapping.on;
 
         if (!commandId) {
-          throw new Error(`Toggle not available: missing ${state.isOn ? 'off' : 'on'} command`);
+          // Fallback final sur la commande toggle native si l'une des commandes manque
+          commandId = mapping.toggle;
         }
       }
 
+      // Si toggle demandé et pas de on/off, fallback sur toggle natif
+      if (!commandId && capability === "toggle") {
+        commandId = mapping.toggle;
+      }
+
       if (!commandId) {
-        throw new Error(`Capability '${capability}' not available for device ${deviceId}`);
+        throw new Error(
+          `Capability '${capability}' not available for device ${deviceId}`,
+        );
       }
 
       const requestParams = {
         apikey: this.apiKey,
-        id: parseInt(commandId)
+        id: parseInt(commandId),
       };
 
-      if (capability === 'dim' && params.value !== undefined) {
+      if (capability === "dim" && params.value !== undefined) {
         requestParams.options = { slider: params.value };
       }
 
-      console.log(`🚀 [Jeedom] Executing command ${commandId} (capability: ${capability}) for device ${deviceId}`, requestParams);
-
-      const response = await axios.post(
-        `${this.baseUrl}/core/api/jeeApi.php`,
-        {
-          jsonrpc: '2.0',
-          id: '1',
-          method: 'cmd::execCmd',
-          params: requestParams
-        }
+      console.log(
+        `🚀 [Jeedom] Executing command ${commandId} (capability: ${capability}) for device ${deviceId}`,
+        requestParams,
       );
+
+      const response = await axios.post(`${this.baseUrl}/core/api/jeeApi.php`, {
+        jsonrpc: "2.0",
+        id: "1",
+        method: "cmd::execCmd",
+        params: requestParams,
+      });
 
       console.log(`✅ [Jeedom] Response:`, response.data);
     } catch (error) {
-      console.error('❌ [Jeedom] Failed to execute capability:', error.message);
+      console.error("❌ [Jeedom] Failed to execute capability:", error.message);
       if (error.response) {
-        console.error('Response data:', error.response.data);
+        console.error("Response data:", error.response.data);
       }
       throw error;
     }
@@ -221,15 +240,20 @@ class JeedomProvider extends BaseProvider {
       const commands = await this.getCommands(deviceId);
 
       // Chercher une commande d'état binaire (plusieurs generic_type possibles)
-      const stateTypes = ['LIGHT_STATE_BOOL', 'ENERGY_STATE', 'HEATING_STATE', 'SWITCH_STATE'];
-      let stateCmd = commands.find(c =>
-        c.type === 'info' && stateTypes.includes(c.generic_type)
+      const stateTypes = [
+        "LIGHT_STATE_BOOL",
+        "ENERGY_STATE",
+        "HEATING_STATE",
+        "SWITCH_STATE",
+      ];
+      let stateCmd = commands.find(
+        (c) => c.type === "info" && stateTypes.includes(c.generic_type),
       );
 
       // Fallback : chercher n'importe quelle commande info binaire
       if (!stateCmd) {
-        stateCmd = commands.find(c =>
-          c.type === 'info' && c.subType === 'binary'
+        stateCmd = commands.find(
+          (c) => c.type === "info" && c.subType === "binary",
         );
       }
 
@@ -237,22 +261,24 @@ class JeedomProvider extends BaseProvider {
         const response = await axios.post(
           `${this.baseUrl}/core/api/jeeApi.php`,
           {
-            jsonrpc: '2.0',
-            id: '1',
-            method: 'cmd::execCmd',
-            params: { apikey: this.apiKey, id: stateCmd.id }
-          }
+            jsonrpc: "2.0",
+            id: "1",
+            method: "cmd::execCmd",
+            params: { apikey: this.apiKey, id: stateCmd.id },
+          },
         );
         const rawValue = response.data.result;
-        const isOn = rawValue === 1 || rawValue === '1';
-        console.log(`💡 [Jeedom] Device ${deviceId} state: raw=${rawValue}, isOn=${isOn}`);
+        const isOn = rawValue === 1 || rawValue === "1";
+        console.log(
+          `💡 [Jeedom] Device ${deviceId} state: raw=${rawValue}, isOn=${isOn}`,
+        );
         return { isOn };
       }
 
       console.log(`⚠️  [Jeedom] No state command found for device ${deviceId}`);
       return {};
     } catch (error) {
-      console.error('Failed to get device state:', error.message);
+      console.error("Failed to get device state:", error.message);
       return {};
     }
   }
@@ -264,15 +290,15 @@ class JeedomProvider extends BaseProvider {
         const response = await axios.post(
           `${this.baseUrl}/core/api/jeeApi.php`,
           {
-            jsonrpc: '2.0',
-            id: '1',
-            method: 'event::changes',
+            jsonrpc: "2.0",
+            id: "1",
+            method: "event::changes",
             params: {
               apikey: this.apiKey,
-              datetime: this.lastDatetime || 0
-            }
+              datetime: this.lastDatetime || 0,
+            },
           },
-          { timeout: 60000 }
+          { timeout: 60000 },
         );
 
         if (response.data.result) {
@@ -284,7 +310,7 @@ class JeedomProvider extends BaseProvider {
 
         setImmediate(poll);
       } catch (error) {
-        console.error('Polling error:', error.message);
+        console.error("Polling error:", error.message);
         setTimeout(poll, 5000);
       }
     };
