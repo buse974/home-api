@@ -253,6 +253,38 @@ async function seed() {
       console.log("✓ Widget RawState already exists");
     }
 
+    // 12. Créer le widget TextTicker (catalogue)
+    let widgetTextTicker = await Widget.findOne({
+      where: { name: "TextTicker" },
+    });
+    if (!widgetTextTicker) {
+      widgetTextTicker = await Widget.create({
+        name: "TextTicker",
+        libelle: "Message Defilant",
+        component: "TextTicker",
+        description: "Affiche un message graphique avec defilement automatique",
+        icon: "📢",
+        category: "media",
+        config_schema: {
+          message: {
+            type: "string",
+            required: true,
+            default: "Bienvenue dans votre dashboard",
+            label: "Message",
+          },
+          speed: {
+            type: "number",
+            required: true,
+            default: 16,
+            label: "Vitesse de defilement (s)",
+          },
+        },
+      });
+      console.log("✓ Widget TextTicker created");
+    } else {
+      console.log("✓ Widget TextTicker already exists");
+    }
+
     console.log("\n✅ Seed completed successfully");
     console.log("\nℹ️  Login with: admin@home.local / demo123");
     process.exit(0);

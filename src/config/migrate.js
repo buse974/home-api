@@ -123,6 +123,28 @@ const WIDGETS_CATALOGUE = [
     category: "sensor",
     config_schema: {},
   },
+  {
+    name: "TextTicker",
+    libelle: "Message Defilant",
+    component: "TextTicker",
+    description: "Affiche un message graphique avec defilement automatique",
+    icon: "📢",
+    category: "media",
+    config_schema: {
+      message: {
+        type: "string",
+        required: true,
+        default: "Bienvenue dans votre dashboard",
+        label: "Message",
+      },
+      speed: {
+        type: "number",
+        required: true,
+        default: 16,
+        label: "Vitesse de defilement (s)",
+      },
+    },
+  },
 ];
 
 async function upsertWidgetsCatalogue() {
