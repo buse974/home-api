@@ -36,6 +36,6 @@ jobs:
           script: |
             cd ~/infra/home-api
             docker compose pull
-            docker compose up -d
+            docker compose up -d --force-recreate
             docker exec home-api npm run db:migrate || true
             docker image prune -f
