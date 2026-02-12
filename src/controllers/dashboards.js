@@ -109,6 +109,76 @@ export const updateDashboard = async (req, res) => {
   }
 };
 
+// DELETE /dashboards/:id - Supprimer un dashboard
+export const deleteDashboard = async (req, res) => {
+  try {
+    const dashboard = await Dashboard.findOne({
+      where: {
+        id: req.params.id,
+        houseId: req.user.house_id,
+      },
+      include: [
+        {
+          model: DashboardWidget,
+          as: "DashboardWidgets",
+          include: [
+            {
+              model: GenericDevice,
+              as: "GenericDevices",
+              through: { attributes: [] },
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!dashboard) {
+      return res.status(404).json({ error: "Dashboard not found" });
+    }
+
+    const dashboardsCount = await Dashboard.count({
+      where: { houseId: req.user.house_id },
+    });
+
+    if (dashboardsCount <= 1) {
+      return res
+        .status(400)
+        .json({ error: "Cannot delete the last dashboard" });
+    }
+
+    const deviceIds = Array.from(
+      new Set(
+        (dashboard.DashboardWidgets || [])
+          .flatMap((dw) => dw.GenericDevices || [])
+          .map((device) => device.id),
+      ),
+    );
+
+    await sequelize.transaction(async (t) => {
+      await dashboard.destroy({ transaction: t });
+
+      for (const deviceId of deviceIds) {
+        const usageCount = await DashboardWidgetDevice.count({
+          where: { genericDeviceId: deviceId },
+          transaction: t,
+        });
+
+        if (usageCount === 0) {
+          await GenericDevice.destroy({
+            where: { id: deviceId },
+            transaction: t,
+          });
+        }
+      }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Delete dashboard error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // POST /dashboards/:dashboardId/widgets - Ajouter un widget au dashboard
 export const addWidget = async (req, res) => {
   try {

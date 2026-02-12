@@ -4,6 +4,7 @@ import {
   getDashboard,
   createDashboard,
   updateDashboard,
+  deleteDashboard,
   addWidget,
   updateWidget,
   deleteWidget,
@@ -30,6 +31,7 @@ router.get("/", getDashboards);
 router.post("/", createDashboard);
 router.get("/:id", getDashboard);
 router.put("/:id", updateDashboard);
+router.delete("/:id", deleteDashboard);
 router.put("/:id/layouts", updateDashboardLayouts);
 
 // Widgets sur dashboard
