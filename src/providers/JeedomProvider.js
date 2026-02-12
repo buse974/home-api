@@ -147,7 +147,18 @@ class JeedomProvider extends BaseProvider {
       // Pour l'instant on cherche la commande
       const commands = await this.getCommands(deviceId);
       const mapping = this.buildCommandMapping(commands);
-      const commandId = mapping[capability];
+      let commandId = mapping[capability];
+
+      // Toggle virtuel : si toggle demandé mais pas disponible, utiliser on/off selon l'état
+      if (!commandId && capability === 'toggle' && (mapping.on || mapping.off)) {
+        console.log(`📌 Toggle virtuel pour device ${deviceId} (utilisation de on/off)`);
+        const state = await this.getDeviceState(deviceId);
+        commandId = state.isOn ? mapping.off : mapping.on;
+
+        if (!commandId) {
+          throw new Error(`Toggle not available: missing ${state.isOn ? 'off' : 'on'} command`);
+        }
+      }
 
       if (!commandId) {
         throw new Error(`Capability '${capability}' not available for device ${deviceId}`);
@@ -180,9 +191,19 @@ class JeedomProvider extends BaseProvider {
   async getDeviceState(deviceId) {
     try {
       const commands = await this.getCommands(deviceId);
-      const stateCmd = commands.find(c =>
-        c.type === 'info' && c.generic_type === 'LIGHT_STATE_BOOL'
+
+      // Chercher une commande d'état binaire (plusieurs generic_type possibles)
+      const stateTypes = ['LIGHT_STATE_BOOL', 'ENERGY_STATE', 'HEATING_STATE', 'SWITCH_STATE'];
+      let stateCmd = commands.find(c =>
+        c.type === 'info' && stateTypes.includes(c.generic_type)
       );
+
+      // Fallback : chercher n'importe quelle commande info binaire
+      if (!stateCmd) {
+        stateCmd = commands.find(c =>
+          c.type === 'info' && c.subType === 'binary'
+        );
+      }
 
       if (stateCmd) {
         const response = await axios.post(
