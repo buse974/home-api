@@ -190,6 +190,69 @@ async function seed() {
       console.log("✓ Widget Sensor already exists");
     }
 
+    // 10. Créer le widget StateMessage (catalogue)
+    let widgetStateMessage = await Widget.findOne({
+      where: { name: "StateMessage" },
+    });
+    if (!widgetStateMessage) {
+      widgetStateMessage = await Widget.create({
+        name: "StateMessage",
+        libelle: "Message Etat 1/0",
+        component: "StateMessage",
+        description: "Affiche un message personnalise selon la valeur 1 ou 0",
+        icon: "💬",
+        category: "sensor",
+        config_schema: {
+          trueMessage: {
+            type: "string",
+            required: true,
+            default: "Allume",
+            label: "Message quand 1",
+          },
+          falseMessage: {
+            type: "string",
+            required: true,
+            default: "Eteint",
+            label: "Message quand 0",
+          },
+          trueColor: {
+            type: "string",
+            enum: ["green", "red", "blue", "purple"],
+            required: true,
+            default: "green",
+            label: "Couleur quand 1",
+          },
+          falseColor: {
+            type: "string",
+            enum: ["green", "red", "blue", "purple"],
+            required: true,
+            default: "red",
+            label: "Couleur quand 0",
+          },
+        },
+      });
+      console.log("✓ Widget StateMessage created");
+    } else {
+      console.log("✓ Widget StateMessage already exists");
+    }
+
+    // 11. Créer le widget RawState (catalogue)
+    let widgetRawState = await Widget.findOne({ where: { name: "RawState" } });
+    if (!widgetRawState) {
+      widgetRawState = await Widget.create({
+        name: "RawState",
+        libelle: "Etat Brut",
+        component: "RawState",
+        description: "Affiche la donnee brute retournee par le provider",
+        icon: "🧾",
+        category: "sensor",
+        config_schema: {},
+      });
+      console.log("✓ Widget RawState created");
+    } else {
+      console.log("✓ Widget RawState already exists");
+    }
+
     console.log("\n✅ Seed completed successfully");
     console.log("\nℹ️  Login with: admin@home.local / demo123");
     process.exit(0);
