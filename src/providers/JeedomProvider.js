@@ -119,11 +119,23 @@ class JeedomProvider extends BaseProvider {
     const onTypes = ['LIGHT_ON', 'ENERGY_ON', 'HEATING_ON', 'SWITCH_ON'];
     const offTypes = ['LIGHT_OFF', 'ENERGY_OFF', 'HEATING_OFF', 'SWITCH_OFF'];
 
-    const toggleCmd = commands.find(c => toggleTypes.includes(c.generic_type));
-    const onCmd = commands.find(c => onTypes.includes(c.generic_type));
-    const offCmd = commands.find(c => offTypes.includes(c.generic_type));
+    // Chercher d'abord par generic_type
+    let toggleCmd = commands.find(c => toggleTypes.includes(c.generic_type));
+    let onCmd = commands.find(c => onTypes.includes(c.generic_type));
+    let offCmd = commands.find(c => offTypes.includes(c.generic_type));
     const dimCmd = commands.find(c => c.generic_type === 'LIGHT_SLIDER');
     const colorCmd = commands.find(c => c.generic_type === 'LIGHT_COLOR');
+
+    // Fallback : chercher par nom de commande (plus robuste si generic_type non configuré)
+    if (!toggleCmd) {
+      toggleCmd = commands.find(c => c.type === 'action' && c.name.toLowerCase() === 'toggle');
+    }
+    if (!onCmd) {
+      onCmd = commands.find(c => c.type === 'action' && c.name.toLowerCase() === 'on');
+    }
+    if (!offCmd) {
+      offCmd = commands.find(c => c.type === 'action' && c.name.toLowerCase() === 'off');
+    }
 
     if (toggleCmd) mapping.toggle = toggleCmd.id;
     if (onCmd) mapping.on = onCmd.id;
