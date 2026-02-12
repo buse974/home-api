@@ -483,9 +483,28 @@ export const getAllDashboardWidgets = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
-    res.json({ dashboardWidgets });
+
+export const updateDashboardLayouts = async (req, res) => {
+  try {
+    const { layouts } = req.body;
+    const { id } = req.params;
+
+    const dashboard = await Dashboard.findOne({
+      where: {
+        id,
+        houseId: req.user.house_id
+      }
+    });
+
+    if (!dashboard) {
+      return res.status(404).json({ error: 'Dashboard not found' });
+    }
+
+    await dashboard.update({ layouts });
+
+    res.json({ success: true, layouts: dashboard.layouts });
   } catch (error) {
-    console.error('List all dashboard widgets error:', error);
+    console.error('Update dashboard layouts error:', error);
     res.status(500).json({ error: error.message });
   }
 };
