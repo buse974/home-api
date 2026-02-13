@@ -319,6 +319,35 @@ async function seed() {
       }
     }
 
+    // 14. Créer le widget Weather (catalogue)
+    let widgetWeather = await Widget.findOne({ where: { name: "Weather" } });
+    if (!widgetWeather) {
+      widgetWeather = await Widget.create({
+        name: "Weather",
+        libelle: "Meteo",
+        component: "Weather",
+        description: "Affiche la meteo en direct a partir d'une adresse",
+        icon: "🌤️",
+        category: "media",
+        requiresDevice: false,
+        config_schema: {
+          address: {
+            type: "string",
+            required: true,
+            default: "Paris",
+            label: "Adresse / Ville",
+          },
+        },
+      });
+      console.log("✓ Widget Weather created");
+    } else {
+      console.log("✓ Widget Weather already exists");
+      if (widgetWeather.requiresDevice !== false) {
+        await widgetWeather.update({ requiresDevice: false });
+        console.log("✓ Widget Weather requiresDevice updated to false");
+      }
+    }
+
     console.log("\n✅ Seed completed successfully");
     console.log("\nℹ️  Login with: admin@home.local / demo123");
     process.exit(0);

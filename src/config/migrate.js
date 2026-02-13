@@ -156,6 +156,23 @@ const WIDGETS_CATALOGUE = [
     requiresDevice: false,
     config_schema: {},
   },
+  {
+    name: "Weather",
+    libelle: "Meteo",
+    component: "Weather",
+    description: "Affiche la meteo en direct a partir d'une adresse",
+    icon: "🌤️",
+    category: "media",
+    requiresDevice: false,
+    config_schema: {
+      address: {
+        type: "string",
+        required: true,
+        default: "Paris",
+        label: "Adresse / Ville",
+      },
+    },
+  },
 ];
 
 async function upsertWidgetsCatalogue() {
