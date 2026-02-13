@@ -297,6 +297,28 @@ async function seed() {
       }
     }
 
+    // 13. Créer le widget Clock (catalogue)
+    let widgetClock = await Widget.findOne({ where: { name: "Clock" } });
+    if (!widgetClock) {
+      widgetClock = await Widget.create({
+        name: "Clock",
+        libelle: "Horloge",
+        component: "Clock",
+        description: "Affiche l'heure en temps reel",
+        icon: "🕒",
+        category: "media",
+        requiresDevice: false,
+        config_schema: {},
+      });
+      console.log("✓ Widget Clock created");
+    } else {
+      console.log("✓ Widget Clock already exists");
+      if (widgetClock.requiresDevice !== false) {
+        await widgetClock.update({ requiresDevice: false });
+        console.log("✓ Widget Clock requiresDevice updated to false");
+      }
+    }
+
     console.log("\n✅ Seed completed successfully");
     console.log("\nℹ️  Login with: admin@home.local / demo123");
     process.exit(0);

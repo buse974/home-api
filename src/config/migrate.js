@@ -130,6 +130,7 @@ const WIDGETS_CATALOGUE = [
     description: "Affiche un message graphique avec defilement automatique",
     icon: "📢",
     category: "media",
+    requiresDevice: false,
     config_schema: {
       message: {
         type: "string",
@@ -144,6 +145,16 @@ const WIDGETS_CATALOGUE = [
         label: "Vitesse de defilement (s)",
       },
     },
+  },
+  {
+    name: "Clock",
+    libelle: "Horloge",
+    component: "Clock",
+    description: "Affiche l'heure en temps reel",
+    icon: "🕒",
+    category: "media",
+    requiresDevice: false,
+    config_schema: {},
   },
 ];
 
