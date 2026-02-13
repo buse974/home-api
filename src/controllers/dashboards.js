@@ -9,6 +9,12 @@ import {
 import sequelize from "../config/database.js";
 import ProviderFactory from "../providers/ProviderFactory.js";
 
+function widgetNeedsDevice(widget) {
+  if (!widget) return true;
+  if (widget.name === "TextTicker") return false;
+  return widget.requiresDevice !== false;
+}
+
 // GET /dashboards - Liste des dashboards de la maison
 export const getDashboards = async (req, res) => {
   try {
@@ -213,7 +219,7 @@ export const addWidget = async (req, res) => {
       return res.status(404).json({ error: "Widget not found" });
     }
 
-    const requiresDevice = widget.requiresDevice !== false;
+    const requiresDevice = widgetNeedsDevice(widget);
     if (requiresDevice && genericDeviceIds.length === 0) {
       return res
         .status(400)
@@ -301,7 +307,7 @@ export const updateWidget = async (req, res) => {
         {
           model: Widget,
           as: "Widget",
-          attributes: ["id", "requiresDevice"],
+          attributes: ["id", "name", "requiresDevice"],
         },
       ],
     });
@@ -318,7 +324,7 @@ export const updateWidget = async (req, res) => {
           .json({ error: "genericDeviceIds must be an array" });
       }
 
-      const requiresDevice = dashboardWidget.Widget?.requiresDevice !== false;
+      const requiresDevice = widgetNeedsDevice(dashboardWidget.Widget);
       if (requiresDevice && genericDeviceIds.length === 0) {
         return res
           .status(400)
