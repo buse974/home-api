@@ -88,6 +88,7 @@ async function seed() {
         description: "Toggle on/off simple",
         icon: "toggle-right",
         category: "switch",
+        requiresDevice: true,
         config_schema: {},
       });
       console.log("✓ Widget Switch created");
@@ -108,6 +109,7 @@ async function seed() {
         description: "Design minimaliste avec toggle horizontal",
         icon: "🎚️",
         category: "switch",
+        requiresDevice: true,
         config_schema: {},
       });
       console.log("✓ Widget SwitchToggle created");
@@ -127,6 +129,7 @@ async function seed() {
         description: "Bouton pour une action spécifique (ON, OFF, Toggle)",
         icon: "⚡",
         category: "action",
+        requiresDevice: true,
         config_schema: {
           action: {
             type: "string",
@@ -165,6 +168,7 @@ async function seed() {
         description: "Switch futuriste avec effet néon et animations cyberpunk",
         icon: "⚡",
         category: "switch",
+        requiresDevice: true,
         config_schema: {},
       });
       console.log("✓ Widget SwitchNeon created");
@@ -183,6 +187,7 @@ async function seed() {
           "Affiche l'etat ON/OFF d'un ou plusieurs devices en quasi temps reel",
         icon: "📡",
         category: "sensor",
+        requiresDevice: true,
         config_schema: {},
       });
       console.log("✓ Widget Sensor created");
@@ -202,6 +207,7 @@ async function seed() {
         description: "Affiche un message personnalise selon la valeur 1 ou 0",
         icon: "💬",
         category: "sensor",
+        requiresDevice: true,
         config_schema: {
           trueMessage: {
             type: "string",
@@ -246,6 +252,7 @@ async function seed() {
         description: "Affiche la donnee brute retournee par le provider",
         icon: "🧾",
         category: "sensor",
+        requiresDevice: true,
         config_schema: {},
       });
       console.log("✓ Widget RawState created");
@@ -265,6 +272,7 @@ async function seed() {
         description: "Affiche un message graphique avec defilement automatique",
         icon: "📢",
         category: "media",
+        requiresDevice: false,
         config_schema: {
           message: {
             type: "string",
@@ -283,6 +291,10 @@ async function seed() {
       console.log("✓ Widget TextTicker created");
     } else {
       console.log("✓ Widget TextTicker already exists");
+      if (widgetTextTicker.requiresDevice !== false) {
+        await widgetTextTicker.update({ requiresDevice: false });
+        console.log("✓ Widget TextTicker requiresDevice updated to false");
+      }
     }
 
     console.log("\n✅ Seed completed successfully");

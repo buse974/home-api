@@ -184,16 +184,15 @@ export const addWidget = async (req, res) => {
   try {
     const {
       widgetId,
-      genericDeviceIds,
+      genericDeviceIds = [],
       config = {},
       position = { x: 0, y: 0, w: 2, h: 1 },
     } = req.body;
 
-    // Valider que genericDeviceIds est un array non vide
-    if (!Array.isArray(genericDeviceIds) || genericDeviceIds.length === 0) {
+    if (!Array.isArray(genericDeviceIds)) {
       return res
         .status(400)
-        .json({ error: "genericDeviceIds must be a non-empty array" });
+        .json({ error: "genericDeviceIds must be an array" });
     }
 
     // Vérifier que le dashboard appartient à la maison
@@ -214,22 +213,31 @@ export const addWidget = async (req, res) => {
       return res.status(404).json({ error: "Widget not found" });
     }
 
-    // Vérifier que TOUS les devices appartiennent à la maison
-    const devices = await GenericDevice.findAll({
-      where: { id: genericDeviceIds },
-      include: [
-        {
-          model: Provider,
-          as: "Provider",
-          where: { houseId: req.user.house_id },
-        },
-      ],
-    });
+    const requiresDevice = widget.requiresDevice !== false;
+    if (requiresDevice && genericDeviceIds.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "genericDeviceIds must contain at least one device" });
+    }
 
-    if (devices.length !== genericDeviceIds.length) {
-      return res.status(404).json({
-        error: "One or more devices not found or do not belong to this house",
+    if (genericDeviceIds.length > 0) {
+      // Vérifier que TOUS les devices appartiennent à la maison
+      const devices = await GenericDevice.findAll({
+        where: { id: genericDeviceIds },
+        include: [
+          {
+            model: Provider,
+            as: "Provider",
+            where: { houseId: req.user.house_id },
+          },
+        ],
       });
+
+      if (devices.length !== genericDeviceIds.length) {
+        return res.status(404).json({
+          error: "One or more devices not found or do not belong to this house",
+        });
+      }
     }
 
     // Créer le DashboardWidget et ses associations dans une transaction atomique
@@ -246,11 +254,15 @@ export const addWidget = async (req, res) => {
       );
 
       // Créer les associations via DashboardWidgetDevice
-      const associations = genericDeviceIds.map((deviceId) => ({
-        dashboardWidgetId: dashboardWidget.id,
-        genericDeviceId: deviceId,
-      }));
-      await DashboardWidgetDevice.bulkCreate(associations, { transaction: t });
+      if (genericDeviceIds.length > 0) {
+        const associations = genericDeviceIds.map((deviceId) => ({
+          dashboardWidgetId: dashboardWidget.id,
+          genericDeviceId: deviceId,
+        }));
+        await DashboardWidgetDevice.bulkCreate(associations, {
+          transaction: t,
+        });
+      }
 
       // Recharger avec les associations pour la réponse
       return await DashboardWidget.findByPk(dashboardWidget.id, {
@@ -286,6 +298,11 @@ export const updateWidget = async (req, res) => {
           as: "Dashboard",
           where: { houseId: req.user.house_id },
         },
+        {
+          model: Widget,
+          as: "Widget",
+          attributes: ["id", "requiresDevice"],
+        },
       ],
     });
 
@@ -295,28 +312,38 @@ export const updateWidget = async (req, res) => {
 
     // Valider genericDeviceIds si fourni (avant transaction)
     if (genericDeviceIds !== undefined) {
-      if (!Array.isArray(genericDeviceIds) || genericDeviceIds.length === 0) {
+      if (!Array.isArray(genericDeviceIds)) {
         return res
           .status(400)
-          .json({ error: "genericDeviceIds must be a non-empty array" });
+          .json({ error: "genericDeviceIds must be an array" });
       }
 
-      // Vérifier que TOUS les devices appartiennent à la maison
-      const devices = await GenericDevice.findAll({
-        where: { id: genericDeviceIds },
-        include: [
-          {
-            model: Provider,
-            as: "Provider",
-            where: { houseId: req.user.house_id },
-          },
-        ],
-      });
+      const requiresDevice = dashboardWidget.Widget?.requiresDevice !== false;
+      if (requiresDevice && genericDeviceIds.length === 0) {
+        return res
+          .status(400)
+          .json({ error: "genericDeviceIds must contain at least one device" });
+      }
 
-      if (devices.length !== genericDeviceIds.length) {
-        return res.status(404).json({
-          error: "One or more devices not found or do not belong to this house",
+      if (genericDeviceIds.length > 0) {
+        // Vérifier que TOUS les devices appartiennent à la maison
+        const devices = await GenericDevice.findAll({
+          where: { id: genericDeviceIds },
+          include: [
+            {
+              model: Provider,
+              as: "Provider",
+              where: { houseId: req.user.house_id },
+            },
+          ],
         });
+
+        if (devices.length !== genericDeviceIds.length) {
+          return res.status(404).json({
+            error:
+              "One or more devices not found or do not belong to this house",
+          });
+        }
       }
     }
 
@@ -347,13 +374,15 @@ export const updateWidget = async (req, res) => {
         });
 
         // Créer les nouvelles associations
-        const associations = genericDeviceIds.map((deviceId) => ({
-          dashboardWidgetId: dashboardWidget.id,
-          genericDeviceId: deviceId,
-        }));
-        await DashboardWidgetDevice.bulkCreate(associations, {
-          transaction: t,
-        });
+        if (genericDeviceIds.length > 0) {
+          const associations = genericDeviceIds.map((deviceId) => ({
+            dashboardWidgetId: dashboardWidget.id,
+            genericDeviceId: deviceId,
+          }));
+          await DashboardWidgetDevice.bulkCreate(associations, {
+            transaction: t,
+          });
+        }
       }
 
       // Recharger avec les associations pour la réponse
@@ -654,6 +683,7 @@ export const getWidgets = async (req, res) => {
         "description",
         "icon",
         "category",
+        "requiresDevice",
         "config_schema",
       ],
     });
