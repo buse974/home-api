@@ -173,6 +173,29 @@ const WIDGETS_CATALOGUE = [
       },
     },
   },
+  {
+    name: "PhotoFrame",
+    libelle: "Cadre Photo",
+    component: "PhotoFrame",
+    description: "Affiche un diaporama de photos",
+    icon: "🖼️",
+    category: "media",
+    requiresDevice: false,
+    config_schema: {
+      photos: {
+        type: "array",
+        required: false,
+        default: [],
+        label: "Photos",
+      },
+      intervalSeconds: {
+        type: "number",
+        required: true,
+        default: 6,
+        label: "Intervalle (secondes)",
+      },
+    },
+  },
 ];
 
 async function upsertWidgetsCatalogue() {

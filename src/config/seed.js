@@ -348,6 +348,43 @@ async function seed() {
       }
     }
 
+    // 15. Créer le widget PhotoFrame (catalogue)
+    let widgetPhotoFrame = await Widget.findOne({
+      where: { name: "PhotoFrame" },
+    });
+    if (!widgetPhotoFrame) {
+      widgetPhotoFrame = await Widget.create({
+        name: "PhotoFrame",
+        libelle: "Cadre Photo",
+        component: "PhotoFrame",
+        description: "Affiche un diaporama de photos",
+        icon: "🖼️",
+        category: "media",
+        requiresDevice: false,
+        config_schema: {
+          photos: {
+            type: "array",
+            required: false,
+            default: [],
+            label: "Photos",
+          },
+          intervalSeconds: {
+            type: "number",
+            required: true,
+            default: 6,
+            label: "Intervalle (secondes)",
+          },
+        },
+      });
+      console.log("✓ Widget PhotoFrame created");
+    } else {
+      console.log("✓ Widget PhotoFrame already exists");
+      if (widgetPhotoFrame.requiresDevice !== false) {
+        await widgetPhotoFrame.update({ requiresDevice: false });
+        console.log("✓ Widget PhotoFrame requiresDevice updated to false");
+      }
+    }
+
     console.log("\n✅ Seed completed successfully");
     console.log("\nℹ️  Login with: admin@home.local / demo123");
     process.exit(0);
