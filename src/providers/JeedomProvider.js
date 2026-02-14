@@ -134,6 +134,9 @@ class JeedomProvider extends BaseProvider {
     let offCmd = commands.find((c) => offTypes.includes(c.generic_type));
     const dimCmd = commands.find((c) => c.generic_type === "LIGHT_SLIDER");
     const colorCmd = commands.find((c) => c.generic_type === "LIGHT_COLOR");
+    const temperatureCmd = commands.find(
+      (c) => c.generic_type === "LIGHT_SET_COLOR_TEMP",
+    );
 
     // Fallback : chercher par nom de commande (plus robuste si generic_type non configuré)
     if (!toggleCmd) {
@@ -157,6 +160,7 @@ class JeedomProvider extends BaseProvider {
     if (offCmd) mapping.off = offCmd.id;
     if (dimCmd) mapping.dim = dimCmd.id;
     if (colorCmd) mapping.color = colorCmd.id;
+    if (temperatureCmd) mapping.temperature = temperatureCmd.id;
 
     console.log(`🗺️  [Jeedom] Command mapping:`, mapping);
     return mapping;
@@ -216,6 +220,38 @@ class JeedomProvider extends BaseProvider {
 
       if (capability === "dim" && params.value !== undefined) {
         requestParams.options = { slider: params.value };
+      }
+
+      if (capability === "color") {
+        const colorValue =
+          params?.hex ||
+          params?.color ||
+          params?.value ||
+          (params?.r !== undefined &&
+          params?.g !== undefined &&
+          params?.b !== undefined
+            ? `#${Number(params.r).toString(16).padStart(2, "0")}${Number(
+                params.g,
+              )
+                .toString(16)
+                .padStart(2, "0")}${Number(params.b)
+                .toString(16)
+                .padStart(2, "0")}`
+            : undefined);
+
+        if (colorValue !== undefined) {
+          requestParams.options = {
+            ...(requestParams.options || {}),
+            color: colorValue,
+          };
+        }
+      }
+
+      if (capability === "temperature" && params?.value !== undefined) {
+        requestParams.options = {
+          ...(requestParams.options || {}),
+          slider: Number(params.value),
+        };
       }
 
       console.log(
