@@ -1,4 +1,7 @@
 import sequelize from "./database.js";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   House,
   User,
@@ -9,6 +12,10 @@ import {
   DashboardWidget,
   DashboardWidgetDevice,
 } from "../models/index.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const MIGRATIONS_DIR = path.resolve(__dirname, "../../migrations");
 
 const WIDGETS_CATALOGUE = [
   {
@@ -198,6 +205,58 @@ const WIDGETS_CATALOGUE = [
   },
 ];
 
+async function ensureMigrationsTable() {
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      name VARCHAR(255) PRIMARY KEY,
+      run_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+}
+
+async function runSqlMigrations() {
+  await ensureMigrationsTable();
+
+  const entries = await fs.readdir(MIGRATIONS_DIR);
+  const sqlFiles = entries
+    .filter((name) => name.toLowerCase().endsWith(".sql"))
+    .sort((a, b) => a.localeCompare(b));
+
+  for (const fileName of sqlFiles) {
+    const [rows] = await sequelize.query(
+      "SELECT name FROM schema_migrations WHERE name = :name LIMIT 1",
+      {
+        replacements: { name: fileName },
+      },
+    );
+
+    if (Array.isArray(rows) && rows.length > 0) {
+      console.log(`↷ SQL migration already applied: ${fileName}`);
+      continue;
+    }
+
+    const fullPath = path.join(MIGRATIONS_DIR, fileName);
+    const sql = await fs.readFile(fullPath, "utf8");
+    if (!sql.trim()) {
+      console.log(`↷ SQL migration empty, skipped: ${fileName}`);
+      continue;
+    }
+
+    console.log(`→ Running SQL migration: ${fileName}`);
+    await sequelize.transaction(async (t) => {
+      await sequelize.query(sql, { transaction: t });
+      await sequelize.query(
+        "INSERT INTO schema_migrations (name) VALUES (:name)",
+        {
+          replacements: { name: fileName },
+          transaction: t,
+        },
+      );
+    });
+    console.log(`✓ SQL migration applied: ${fileName}`);
+  }
+}
+
 async function upsertWidgetsCatalogue() {
   for (const widget of WIDGETS_CATALOGUE) {
     const [instance, created] = await Widget.findOrCreate({
@@ -221,6 +280,10 @@ async function migrate() {
     // NEVER use force: true in production - it drops all data!
     await sequelize.sync({ alter: true });
     console.log("✓ Database schema synchronized");
+
+    // Run ordered SQL migrations (idempotent) before catalogue sync
+    await runSqlMigrations();
+    console.log("✓ SQL migrations synchronized");
 
     // Ensure default widgets exist in all environments (CI/CD, prod, local)
     await upsertWidgetsCatalogue();
