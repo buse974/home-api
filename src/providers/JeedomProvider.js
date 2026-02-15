@@ -1,6 +1,11 @@
 import BaseProvider from "./BaseProvider.js";
 import axios from "axios";
 
+const COMMANDS_CACHE_TTL_MS = 30_000;
+const STATE_CACHE_TTL_MS = 1_200;
+const commandsCache = new Map();
+const stateCache = new Map();
+
 class JeedomProvider extends BaseProvider {
   constructor(config) {
     super(config);
@@ -70,6 +75,13 @@ class JeedomProvider extends BaseProvider {
   }
 
   async getCommands(deviceId) {
+    const cacheKey = `${this.baseUrl}|${deviceId}`;
+    const now = Date.now();
+    const cached = commandsCache.get(cacheKey);
+    if (cached && now - cached.at < COMMANDS_CACHE_TTL_MS) {
+      return cached.commands;
+    }
+
     try {
       const response = await axios.post(`${this.baseUrl}/core/api/jeeApi.php`, {
         jsonrpc: "2.0",
@@ -88,6 +100,7 @@ class JeedomProvider extends BaseProvider {
           generic_type: c.generic_type,
         })),
       );
+      commandsCache.set(cacheKey, { at: now, commands });
       return commands;
     } catch (error) {
       console.error(
@@ -341,6 +354,8 @@ class JeedomProvider extends BaseProvider {
       });
 
       console.log(`✅ [Jeedom] Response:`, response.data);
+      const stateCacheKey = `${this.baseUrl}|${deviceId}`;
+      stateCache.delete(stateCacheKey);
     } catch (error) {
       console.error("❌ [Jeedom] Failed to execute capability:", error.message);
       if (error.response) {
@@ -351,6 +366,13 @@ class JeedomProvider extends BaseProvider {
   }
 
   async getDeviceState(deviceId) {
+    const stateCacheKey = `${this.baseUrl}|${deviceId}`;
+    const now = Date.now();
+    const cachedState = stateCache.get(stateCacheKey);
+    if (cachedState && now - cachedState.at < STATE_CACHE_TTL_MS) {
+      return cachedState.state;
+    }
+
     try {
       const commands = await this.getCommands(deviceId);
 
@@ -466,10 +488,12 @@ class JeedomProvider extends BaseProvider {
         );
         const rawValue = response.data.result;
         const isOn = normalizeIsOn(rawValue);
+        const state = { isOn, rawValue, source: "cmd::execCmd" };
         console.log(
           `💡 [Jeedom] Device ${deviceId} state: raw=${JSON.stringify(rawValue)}, isOn=${isOn}`,
         );
-        return { isOn, rawValue, source: "cmd::execCmd" };
+        stateCache.set(stateCacheKey, { at: now, state });
+        return state;
       }
 
       console.log(`⚠️  [Jeedom] No state command found for device ${deviceId}`);
