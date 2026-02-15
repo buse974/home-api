@@ -5,6 +5,7 @@ const COMMANDS_CACHE_TTL_MS = 30_000;
 const STATE_CACHE_TTL_MS = 1_200;
 const commandsCache = new Map();
 const stateCache = new Map();
+const DEBUG_COMMAND_TRACE = true;
 
 class JeedomProvider extends BaseProvider {
   constructor(config) {
@@ -194,6 +195,15 @@ class JeedomProvider extends BaseProvider {
       const mapping = this.buildCommandMapping(commands);
       let commandId = mapping[capability];
 
+      if (DEBUG_COMMAND_TRACE) {
+        console.log("🧭 [Jeedom][Trace] execute start:", {
+          deviceId,
+          capability,
+          params,
+          mapping,
+        });
+      }
+
       // IMPORTANT:
       // Pour éviter les "toggle" Jeedom ambigus/mal mappés (ex: commande qui force ON),
       // on privilégie systématiquement ON/OFF quand ils sont disponibles.
@@ -288,6 +298,7 @@ class JeedomProvider extends BaseProvider {
       };
 
       if (capability === "dim" && params.value !== undefined) {
+        const detectedBounds = resolveSliderBounds(commandDefinition);
         const sliderValue = normalizeSliderValue(
           params.value,
           commandDefinition,
@@ -296,6 +307,17 @@ class JeedomProvider extends BaseProvider {
             max: 100,
           },
         );
+        if (DEBUG_COMMAND_TRACE) {
+          console.log("🎚️ [Jeedom][Trace] dim slider conversion:", {
+            input: params.value,
+            detectedBounds,
+            fallbackBounds: { min: 0, max: 100 },
+            output: sliderValue,
+            commandId,
+            commandName: commandDefinition?.name,
+            commandGenericType: commandDefinition?.generic_type,
+          });
+        }
         if (sliderValue !== null) {
           requestParams.options = { slider: sliderValue };
         }
@@ -327,6 +349,7 @@ class JeedomProvider extends BaseProvider {
       }
 
       if (capability === "temperature" && params?.value !== undefined) {
+        const detectedBounds = resolveSliderBounds(commandDefinition);
         const sliderValue = normalizeSliderValue(
           params.value,
           commandDefinition,
@@ -339,6 +362,18 @@ class JeedomProvider extends BaseProvider {
           ...(requestParams.options || {}),
           slider: sliderValue !== null ? sliderValue : Number(params.value),
         };
+        if (DEBUG_COMMAND_TRACE) {
+          console.log("🌡️ [Jeedom][Trace] temperature slider conversion:", {
+            input: params.value,
+            kelvin: params?.kelvin,
+            detectedBounds,
+            fallbackBounds: { min: 153, max: 500 },
+            output: requestParams.options.slider,
+            commandId,
+            commandName: commandDefinition?.name,
+            commandGenericType: commandDefinition?.generic_type,
+          });
+        }
       }
 
       console.log(
@@ -354,6 +389,18 @@ class JeedomProvider extends BaseProvider {
       });
 
       console.log(`✅ [Jeedom] Response:`, response.data);
+      if (DEBUG_COMMAND_TRACE) {
+        console.log("📨 [Jeedom][Trace] execute end:", {
+          deviceId,
+          capability,
+          commandId,
+          commandName: commandDefinition?.name,
+          commandGenericType: commandDefinition?.generic_type,
+          requestOptions: requestParams.options || null,
+          result: response.data?.result,
+          error: response.data?.error || null,
+        });
+      }
       const stateCacheKey = `${this.baseUrl}|${deviceId}`;
       stateCache.delete(stateCacheKey);
     } catch (error) {
