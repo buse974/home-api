@@ -657,6 +657,10 @@ export const getWidgetState = async (req, res) => {
         deviceName: deviceState.deviceName,
         isOn: deviceState.state?.isOn,
         rawValue: deviceState.state?.rawValue,
+        rawValueJson:
+          deviceState.state?.rawValue !== undefined
+            ? JSON.stringify(deviceState.state.rawValue)
+            : null,
         source: deviceState.state?.source,
       })),
       errors: failed,
