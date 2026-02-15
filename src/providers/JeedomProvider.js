@@ -337,7 +337,7 @@ class JeedomProvider extends BaseProvider {
           commandDefinition,
           {
             min: 0,
-            max: 100,
+            max: 254,
           },
         );
         if (DEBUG_COMMAND_TRACE) {
@@ -345,7 +345,7 @@ class JeedomProvider extends BaseProvider {
             input: params.value,
             effectiveInput: effectiveParams.value,
             detectedBounds,
-            fallbackBounds: { min: 0, max: 100 },
+            fallbackBounds: { min: 0, max: 254 },
             output: sliderValue,
             commandId,
             commandName: commandDefinition?.name,
