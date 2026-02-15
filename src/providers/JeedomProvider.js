@@ -193,13 +193,38 @@ class JeedomProvider extends BaseProvider {
       // Pour l'instant on cherche la commande
       const commands = await this.getCommands(deviceId);
       const mapping = this.buildCommandMapping(commands);
-      let commandId = mapping[capability];
+      let effectiveCapability = capability;
+      let effectiveParams = params;
+      let commandId = mapping[effectiveCapability];
+
+      if (
+        effectiveCapability === "color" &&
+        !commandId &&
+        mapping.temperature
+      ) {
+        const hueValue = Number(params?.hue);
+        const normalized = Number.isFinite(hueValue)
+          ? Math.abs(((hueValue % 360) - 180) / 180)
+          : 0.5;
+        const value = Math.round((1 - normalized) * 100);
+        const kelvin = Math.round(2200 + (value / 100) * (6500 - 2200));
+        effectiveCapability = "temperature";
+        effectiveParams = {
+          ...params,
+          value,
+          kelvin,
+          source: "api-color-fallback",
+        };
+        commandId = mapping.temperature;
+      }
 
       if (DEBUG_COMMAND_TRACE) {
         console.log("🧭 [Jeedom][Trace] execute start:", {
           deviceId,
           capability,
+          effectiveCapability,
           params,
+          effectiveParams,
           mapping,
         });
       }
@@ -207,13 +232,14 @@ class JeedomProvider extends BaseProvider {
       // IMPORTANT:
       // Pour éviter les "toggle" Jeedom ambigus/mal mappés (ex: commande qui force ON),
       // on privilégie systématiquement ON/OFF quand ils sont disponibles.
-      if (capability === "toggle" && (mapping.on || mapping.off)) {
+      if (effectiveCapability === "toggle" && (mapping.on || mapping.off)) {
         console.log(
           `📌 Toggle piloté par état pour device ${deviceId} (priorité on/off)`,
         );
-        const hasDesiredState = typeof params?.desiredState === "boolean";
+        const hasDesiredState =
+          typeof effectiveParams?.desiredState === "boolean";
         if (hasDesiredState) {
-          commandId = params.desiredState ? mapping.on : mapping.off;
+          commandId = effectiveParams.desiredState ? mapping.on : mapping.off;
         } else {
           const state = await this.getDeviceState(deviceId);
           commandId = state.isOn ? mapping.off : mapping.on;
@@ -226,13 +252,13 @@ class JeedomProvider extends BaseProvider {
       }
 
       // Si toggle demandé et pas de on/off, fallback sur toggle natif
-      if (!commandId && capability === "toggle") {
+      if (!commandId && effectiveCapability === "toggle") {
         commandId = mapping.toggle;
       }
 
       if (!commandId) {
         throw new Error(
-          `Capability '${capability}' not available for device ${deviceId}`,
+          `Capability '${effectiveCapability}' not available for device ${deviceId}`,
         );
       }
 
@@ -297,10 +323,13 @@ class JeedomProvider extends BaseProvider {
         id: parseInt(commandId),
       };
 
-      if (capability === "dim" && params.value !== undefined) {
+      if (
+        effectiveCapability === "dim" &&
+        effectiveParams.value !== undefined
+      ) {
         const detectedBounds = resolveSliderBounds(commandDefinition);
         const sliderValue = normalizeSliderValue(
-          params.value,
+          effectiveParams.value,
           commandDefinition,
           {
             min: 0,
@@ -310,6 +339,7 @@ class JeedomProvider extends BaseProvider {
         if (DEBUG_COMMAND_TRACE) {
           console.log("🎚️ [Jeedom][Trace] dim slider conversion:", {
             input: params.value,
+            effectiveInput: effectiveParams.value,
             detectedBounds,
             fallbackBounds: { min: 0, max: 100 },
             output: sliderValue,
@@ -323,19 +353,19 @@ class JeedomProvider extends BaseProvider {
         }
       }
 
-      if (capability === "color") {
+      if (effectiveCapability === "color") {
         const colorValue =
-          params?.hex ||
-          params?.color ||
-          params?.value ||
-          (params?.r !== undefined &&
-          params?.g !== undefined &&
-          params?.b !== undefined
-            ? `#${Number(params.r).toString(16).padStart(2, "0")}${Number(
-                params.g,
+          effectiveParams?.hex ||
+          effectiveParams?.color ||
+          effectiveParams?.value ||
+          (effectiveParams?.r !== undefined &&
+          effectiveParams?.g !== undefined &&
+          effectiveParams?.b !== undefined
+            ? `#${Number(effectiveParams.r).toString(16).padStart(2, "0")}${Number(
+                effectiveParams.g,
               )
                 .toString(16)
-                .padStart(2, "0")}${Number(params.b)
+                .padStart(2, "0")}${Number(effectiveParams.b)
                 .toString(16)
                 .padStart(2, "0")}`
             : undefined);
@@ -348,10 +378,13 @@ class JeedomProvider extends BaseProvider {
         }
       }
 
-      if (capability === "temperature" && params?.value !== undefined) {
+      if (
+        effectiveCapability === "temperature" &&
+        effectiveParams?.value !== undefined
+      ) {
         const detectedBounds = resolveSliderBounds(commandDefinition);
         const sliderValue = normalizeSliderValue(
-          params.value,
+          effectiveParams.value,
           commandDefinition,
           {
             min: 153,
@@ -360,12 +393,14 @@ class JeedomProvider extends BaseProvider {
         );
         requestParams.options = {
           ...(requestParams.options || {}),
-          slider: sliderValue !== null ? sliderValue : Number(params.value),
+          slider:
+            sliderValue !== null ? sliderValue : Number(effectiveParams.value),
         };
         if (DEBUG_COMMAND_TRACE) {
           console.log("🌡️ [Jeedom][Trace] temperature slider conversion:", {
             input: params.value,
-            kelvin: params?.kelvin,
+            effectiveInput: effectiveParams.value,
+            kelvin: effectiveParams?.kelvin,
             detectedBounds,
             fallbackBounds: { min: 153, max: 500 },
             output: requestParams.options.slider,
@@ -377,7 +412,7 @@ class JeedomProvider extends BaseProvider {
       }
 
       console.log(
-        `🚀 [Jeedom] Executing command ${commandId} (capability: ${capability}) for device ${deviceId}`,
+        `🚀 [Jeedom] Executing command ${commandId} (capability: ${effectiveCapability}) for device ${deviceId}`,
         requestParams,
       );
 
@@ -393,6 +428,7 @@ class JeedomProvider extends BaseProvider {
         console.log("📨 [Jeedom][Trace] execute end:", {
           deviceId,
           capability,
+          effectiveCapability,
           commandId,
           commandName: commandDefinition?.name,
           commandGenericType: commandDefinition?.generic_type,
