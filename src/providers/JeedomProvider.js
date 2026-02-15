@@ -127,7 +127,9 @@ class JeedomProvider extends BaseProvider {
             commands.some((cmd) => offTypes.includes(cmd.generic_type))),
       ),
       dim: commands.some((c) => c.generic_type === "LIGHT_SLIDER"),
-      color: commands.some((c) => c.generic_type === "LIGHT_COLOR"),
+      color: commands.some((c) =>
+        ["LIGHT_COLOR", "LIGHT_SET_COLOR"].includes(c.generic_type),
+      ),
       temperature: commands.some(
         (c) => c.generic_type === "LIGHT_SET_COLOR_TEMP",
       ),
@@ -147,7 +149,9 @@ class JeedomProvider extends BaseProvider {
     let onCmd = commands.find((c) => onTypes.includes(c.generic_type));
     let offCmd = commands.find((c) => offTypes.includes(c.generic_type));
     const dimCmd = commands.find((c) => c.generic_type === "LIGHT_SLIDER");
-    const colorCmd = commands.find((c) => c.generic_type === "LIGHT_COLOR");
+    const colorCmd = commands.find((c) =>
+      ["LIGHT_SET_COLOR", "LIGHT_COLOR"].includes(c.generic_type),
+    );
     const temperatureCmd = commands.find(
       (c) => c.generic_type === "LIGHT_SET_COLOR_TEMP",
     );
