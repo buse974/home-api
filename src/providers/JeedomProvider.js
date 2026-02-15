@@ -313,11 +313,28 @@ class JeedomProvider extends BaseProvider {
         });
       }
 
-      const normalizeIsOn = (value) => {
+      const normalizeIsOn = (value, depth = 0) => {
         if (value === null || value === undefined) return undefined;
         if (typeof value === "object") {
-          if (value.value !== undefined) return normalizeIsOn(value.value);
-          if (value.state !== undefined) return normalizeIsOn(value.state);
+          if (depth > 4) return undefined;
+
+          if (value.value !== undefined)
+            return normalizeIsOn(value.value, depth + 1);
+          if (value.state !== undefined)
+            return normalizeIsOn(value.state, depth + 1);
+          if (value.result !== undefined) {
+            return normalizeIsOn(value.result, depth + 1);
+          }
+          if (value.cmd !== undefined)
+            return normalizeIsOn(value.cmd, depth + 1);
+
+          // Some Jeedom plugins return objects with dynamic keys
+          // (ex: {"224":"1"} or {"0":{"value":1}}). Try values recursively.
+          const nestedValues = Object.values(value);
+          for (const nested of nestedValues) {
+            const parsed = normalizeIsOn(nested, depth + 1);
+            if (typeof parsed === "boolean") return parsed;
+          }
           return undefined;
         }
         if (typeof value === "boolean") return value;
@@ -376,7 +393,7 @@ class JeedomProvider extends BaseProvider {
         const rawValue = response.data.result;
         const isOn = normalizeIsOn(rawValue);
         console.log(
-          `💡 [Jeedom] Device ${deviceId} state: raw=${rawValue}, isOn=${isOn}`,
+          `💡 [Jeedom] Device ${deviceId} state: raw=${JSON.stringify(rawValue)}, isOn=${isOn}`,
         );
         return { isOn, rawValue, source: "cmd::execCmd" };
       }
