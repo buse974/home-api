@@ -213,13 +213,79 @@ class JeedomProvider extends BaseProvider {
         );
       }
 
+      const commandDefinition = commands.find(
+        (command) => Number(command.id) === Number(commandId),
+      );
+
+      const resolveSliderBounds = (command) => {
+        const minCandidates = [
+          command?.minValue,
+          command?.configuration?.minValue,
+          command?.display?.minValue,
+          command?.template?.dashboard?.minValue,
+        ];
+        const maxCandidates = [
+          command?.maxValue,
+          command?.configuration?.maxValue,
+          command?.display?.maxValue,
+          command?.template?.dashboard?.maxValue,
+        ];
+
+        const min = minCandidates
+          .map((value) => Number(value))
+          .find((value) => Number.isFinite(value));
+        const max = maxCandidates
+          .map((value) => Number(value))
+          .find((value) => Number.isFinite(value));
+
+        return {
+          min: min ?? null,
+          max: max ?? null,
+        };
+      };
+
+      const normalizeSliderValue = (inputValue, command, fallbackBounds) => {
+        const numericValue = Number(inputValue);
+        if (!Number.isFinite(numericValue)) return null;
+
+        const bounds = resolveSliderBounds(command);
+        const min = bounds.min ?? fallbackBounds.min;
+        const max = bounds.max ?? fallbackBounds.max;
+
+        if (min === null || max === null || max <= min) {
+          return Math.round(numericValue);
+        }
+
+        // If UI sends percent (0-100), scale it to command range.
+        if (
+          numericValue >= 0 &&
+          numericValue <= 100 &&
+          (min !== 0 || max !== 100)
+        ) {
+          const scaled = min + (numericValue / 100) * (max - min);
+          return Math.round(scaled);
+        }
+
+        return Math.round(Math.min(max, Math.max(min, numericValue)));
+      };
+
       const requestParams = {
         apikey: this.apiKey,
         id: parseInt(commandId),
       };
 
       if (capability === "dim" && params.value !== undefined) {
-        requestParams.options = { slider: params.value };
+        const sliderValue = normalizeSliderValue(
+          params.value,
+          commandDefinition,
+          {
+            min: 0,
+            max: 100,
+          },
+        );
+        if (sliderValue !== null) {
+          requestParams.options = { slider: sliderValue };
+        }
       }
 
       if (capability === "color") {
@@ -248,9 +314,17 @@ class JeedomProvider extends BaseProvider {
       }
 
       if (capability === "temperature" && params?.value !== undefined) {
+        const sliderValue = normalizeSliderValue(
+          params.value,
+          commandDefinition,
+          {
+            min: 153,
+            max: 500,
+          },
+        );
         requestParams.options = {
           ...(requestParams.options || {}),
-          slider: Number(params.value),
+          slider: sliderValue !== null ? sliderValue : Number(params.value),
         };
       }
 
