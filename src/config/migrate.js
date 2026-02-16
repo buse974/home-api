@@ -181,6 +181,25 @@ const WIDGETS_CATALOGUE = [
     },
   },
   {
+    name: "Section",
+    libelle: "Section",
+    component: "Section",
+    description:
+      "Zone coloree transparente pour organiser visuellement le dashboard",
+    icon: "🟦",
+    category: "layout",
+    requiresDevice: false,
+    config_schema: {
+      sectionColor: {
+        type: "string",
+        enum: ["white", "blue", "emerald", "violet", "rose", "amber", "cyan"],
+        required: true,
+        default: "white",
+        label: "Couleur de la section",
+      },
+    },
+  },
+  {
     name: "PhotoFrame",
     libelle: "Cadre Photo",
     component: "PhotoFrame",
